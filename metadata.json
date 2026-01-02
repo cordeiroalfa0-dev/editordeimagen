@@ -1,0 +1,7 @@
+{
+  "name": "VisionEdit Pro - Estúdio de Imagem IA Avançado",
+  "description": "Uma plataforma profissional de alta qualidade para edição e variação de imagens usando modelos avançados Gemini Vision e Geração de Imagem.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
