@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Layout from './components/Layout';
 import { processImageRequest } from './services/gemini';
-import { ProcessingResult, ViewMode, SystemLog, GeneratedVersion } from './types';
+import { ProcessingResult, ViewMode } from './types';
 import { BeforeAfterSlider } from './components/BeforeAfterSlider';
 import { saveProject, getAllProjects, deleteProject, clearAllProjects } from './services/storage';
 
@@ -15,8 +15,10 @@ const STYLES = [
 ];
 
 const App: React.FC = () => {
-  const [selectedImage, setSelectedImage] = useState<string | null>(() => localStorage.getItem('visionedit_draft_image'));
-  const [command, setCommand] = useState(() => localStorage.getItem('visionedit_draft_command') || '');
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [needsApiKey, setNeedsApiKey] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [command, setCommand] = useState('');
   const [useGrounding, setUseGrounding] = useState(false);
   const [isProMode, setIsProMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,24 +31,53 @@ const App: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Inicialização segura
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        // Recuperar rascunhos com segurança
+        const draftImg = localStorage.getItem('visionedit_draft_image');
+        const draftCmd = localStorage.getItem('visionedit_draft_command');
+        if (draftImg) setSelectedImage(draftImg);
+        if (draftCmd) setCommand(draftCmd);
+
+        // Verificar Chave de API (Mandatório para Pro/Veo/Grounding)
+        const aistudio = (window as any).aistudio;
+        if (aistudio) {
+          const hasKey = await aistudio.hasSelectedApiKey();
+          if (!hasKey) setNeedsApiKey(true);
+        }
+
+        // Carregar Histórico
+        const saved = await getAllProjects();
+        setProjects(saved);
+        if (saved.length > 0) setResult(saved[0]);
+        
+        // Pequeno delay para estética de loading
+        setTimeout(() => setIsInitializing(false), 1200);
+      } catch (err) {
+        console.error("Erro na inicialização:", err);
+        setIsInitializing(false);
+      }
+    };
+    initApp();
+  }, []);
+
+  // Persistência de Rascunho
   useEffect(() => {
     if (selectedImage) {
-      try { localStorage.setItem('visionedit_draft_image', selectedImage); } catch (e) {}
+      try { localStorage.setItem('visionedit_draft_image', selectedImage); } catch(e) {}
     }
-  }, [selectedImage]);
-
-  useEffect(() => {
     localStorage.setItem('visionedit_draft_command', command);
-  }, [command]);
+  }, [selectedImage, command]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      const saved = await getAllProjects();
-      setProjects(saved);
-      if (saved.length > 0 && !result) setResult(saved[0]);
-    };
-    loadData();
-  }, []);
+  const handleOpenKeySelector = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+      setNeedsApiKey(false); // Procede assumindo sucesso conforme regra
+    }
+  };
 
   const handleImageUpload = (file: File) => {
     const reader = new FileReader();
@@ -62,19 +93,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleApplyStyle = (stylePrompt: string) => {
-    setCommand((prev) => `${prev} ${stylePrompt}`.trim());
-  };
-
   const handleSubmit = async () => {
     if (!selectedImage) return;
 
-    // MANDATORY: API Key selection for Pro or Grounding modes as they use gemini-3-pro-image-preview
-    if (isProMode || useGrounding) {
-      const aistudio = (window as any).aistudio;
-      if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+    // Se o usuário tentar Pro sem chave, abre o seletor
+    const aistudio = (window as any).aistudio;
+    if ((isProMode || useGrounding) && aistudio) {
+      if (!(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
-        // Assuming success as per guidelines to mitigate race condition
       }
     }
 
@@ -87,13 +113,11 @@ const App: React.FC = () => {
       setProjects(await getAllProjects());
       setViewMode(ViewMode.GALLERY);
     } catch (err: any) {
-      // If error suggests API key issues, prompt user to select key again
       if (err?.message?.includes("Requested entity was not found.")) {
-        setError("API Key Error: Please select an API key from a paid GCP project.");
-        const aistudio = (window as any).aistudio;
-        if (aistudio) await aistudio.openSelectKey();
+        setError("Chave de API Inválida. Por favor, selecione uma chave de um projeto GCP com faturamento ativo.");
+        if (aistudio) aistudio.openSelectKey();
       } else {
-        setError(err?.message || "Unexpected rendering error.");
+        setError(err?.message || "Ocorreu um erro no pipeline de renderização.");
       }
     } finally { setIsProcessing(false); }
   };
@@ -104,11 +128,49 @@ const App: React.FC = () => {
     setViewMode(ViewMode.GALLERY);
   };
 
-  // Fix for: Cannot find name 'handleUseAsBase'
   const handleUseAsBase = (imageUrl: string) => {
     setSelectedImage(imageUrl);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // State: Tela de Loading
+  if (isInitializing) {
+    return (
+      <div className="fixed inset-0 bg-[#020202] flex flex-col items-center justify-center z-[999]">
+        <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center font-black text-3xl italic animate-pulse shadow-[0_0_50px_rgba(99,102,241,0.4)]">V</div>
+        <div className="mt-8 space-y-2 text-center">
+          <p className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400">Iniciando StudioMaster</p>
+          <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Aguardando Sincronização de Rede</p>
+        </div>
+      </div>
+    );
+  }
+
+  // State: Seleção de Chave Mandatória
+  if (needsApiKey) {
+    return (
+      <div className="fixed inset-0 bg-[#020202] flex items-center justify-center p-6 z-[998]">
+        <div className="max-w-md w-full glass-card p-10 rounded-[3rem] text-center space-y-8 premium-border shadow-2xl">
+          <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center mx-auto">
+             <svg className="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-black italic">Autenticação Requerida</h2>
+            <p className="text-zinc-500 text-sm leading-relaxed">Para acessar os recursos avançados de IA e o modo Pro, você deve selecionar sua própria chave de API vinculada ao Google Cloud Billing.</p>
+          </div>
+          <button 
+            onClick={handleOpenKeySelector}
+            className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-50 transition-all shadow-xl active:scale-95"
+          >
+            Selecionar Chave de API
+          </button>
+          <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-tighter">
+            Saiba mais em: <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline hover:text-indigo-400">ai.google.dev/billing</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Layout 
@@ -121,7 +183,6 @@ const App: React.FC = () => {
       onGeneratePython={() => {}}
     >
       <div className="max-w-7xl mx-auto p-4 md:p-12 space-y-12">
-        {/* Header Superior */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 stagger-1">
           <div className="space-y-4">
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white italic">
@@ -141,19 +202,17 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Error Alert */}
         {error && (
           <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] text-red-400 text-[10px] font-black uppercase tracking-widest text-center animate-pulse">
             {error}
           </div>
         )}
 
-        {/* Barra de Estilos Rápidos */}
         <div className="flex gap-4 overflow-x-auto pb-4 px-2 custom-scrollbar stagger-2">
            {STYLES.map(style => (
              <button 
               key={style.id} 
-              onClick={() => handleApplyStyle(style.prompt)}
+              onClick={() => { setCommand(prev => `${prev} ${style.prompt}`.trim()); }}
               className="flex items-center gap-3 px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-[1.5rem] hover:bg-zinc-800 hover:border-indigo-500/30 transition-all shrink-0 group active:scale-95"
              >
                 <span className="text-xl group-hover:scale-125 transition-transform">{style.icon}</span>
@@ -163,7 +222,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Workspace Lateral */}
           <div className="lg:col-span-4 space-y-8 stagger-3">
             <section 
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -181,7 +239,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-700">
                       <svg className="w-12 h-12 mb-4 opacity-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                      <span className="font-black text-[10px] uppercase tracking-[0.3em]">Drop Image Here</span>
+                      <span className="font-black text-[10px] uppercase tracking-[0.3em]">Arraste seu Asset</span>
                     </div>
                   )}
                   <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" />
@@ -189,32 +247,23 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="relative">
-                  <textarea 
-                    value={command} 
-                    onChange={(e) => setCommand(e.target.value)} 
-                    className="w-full bg-black/60 border border-white/5 rounded-3xl p-6 text-sm text-zinc-300 min-h-[140px] outline-none focus:border-indigo-500/40 transition-all placeholder:text-zinc-800 leading-relaxed shadow-inner" 
-                    placeholder="Briefing: O que devemos recriar?"
-                  />
-                  {command && (
-                    <button onClick={() => setCommand('')} className="absolute top-4 right-4 text-zinc-600 hover:text-white transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  )}
-                </div>
-                
+                <textarea 
+                  value={command} 
+                  onChange={(e) => setCommand(e.target.value)} 
+                  className="w-full bg-black/60 border border-white/5 rounded-3xl p-6 text-sm text-zinc-300 min-h-[140px] outline-none focus:border-indigo-500/40 transition-all placeholder:text-zinc-800 leading-relaxed shadow-inner" 
+                  placeholder="Instruções de Edição..."
+                />
                 <button 
                   onClick={handleSubmit} 
                   disabled={isProcessing || !selectedImage} 
-                  className={`w-full py-5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all relative overflow-hidden ${isProcessing ? 'bg-zinc-800 text-zinc-600' : 'bg-white text-black hover:bg-indigo-50 active:scale-[0.96]'}`}
+                  className={`w-full py-5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all relative overflow-hidden ${isProcessing ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-white text-black hover:bg-indigo-50 active:scale-[0.96] shadow-xl'}`}
                 >
-                  {isProcessing ? "Rendering Scene..." : "Executar Pipeline"}
+                  {isProcessing ? "Renderizando..." : "Executar Pipeline"}
                 </button>
               </div>
             </section>
           </div>
 
-          {/* Área de Visualização */}
           <div className="lg:col-span-8 stagger-3">
             {isProcessing ? (
               <div className="aspect-square glass-card rounded-[4rem] flex flex-col items-center justify-center premium-border">
@@ -223,8 +272,8 @@ const App: React.FC = () => {
                    <div className="absolute inset-0 border-t-2 border-indigo-500 rounded-full animate-spin"></div>
                 </div>
                 <div className="space-y-4 text-center">
-                  <p className="text-[12px] font-black uppercase text-indigo-400 tracking-[0.6em]">Consultando Neural Engine</p>
-                  <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Sincronizando luzes e vetores de profundidade</p>
+                  <p className="text-[12px] font-black uppercase text-indigo-400 tracking-[0.6em]">Processando Studio Vision</p>
+                  <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Aguarde a finalização da malha neural</p>
                 </div>
               </div>
             ) : result ? (
@@ -240,26 +289,13 @@ const App: React.FC = () => {
                       <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6">
                         <div className="flex flex-col items-center sm:items-start">
                           <span className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.4em]">Asset Ref. {i+1}</span>
-                          <span className="text-[9px] font-bold text-zinc-600 mt-1 uppercase">Grounding Sources: {v.groundingUrls?.length || 0}</span>
                         </div>
                         <div className="flex gap-3">
                            <button onClick={() => handleUseAsBase(v.imageUrl)} className="px-6 py-3 bg-white text-black text-[10px] font-black uppercase rounded-xl hover:bg-zinc-100 transition-all">Refinar</button>
-                           <button onClick={() => window.open(v.imageUrl)} className="p-3 bg-zinc-800/80 rounded-xl text-white hover:bg-zinc-700">
-                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                           </button>
+                           <button onClick={() => window.open(v.imageUrl)} className="p-3 bg-zinc-800/80 rounded-xl text-white hover:bg-zinc-700">Visualizar</button>
                         </div>
                       </div>
                       <img src={v.imageUrl} className="w-full aspect-square object-cover" />
-                      {v.groundingUrls && (
-                        <div className="p-6 bg-black/40 border-t border-white/5 overflow-x-auto">
-                          <div className="flex gap-4 items-center">
-                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest shrink-0">Sources:</span>
-                            {v.groundingUrls.map((url, idx) => (
-                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-[9px] font-bold text-indigo-400 hover:text-white truncate max-w-[150px] uppercase underline">Fonte {idx+1}</a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))
                 ) : (
@@ -276,12 +312,12 @@ const App: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="h-full min-h-[500px] border-2 border-dashed border-white/5 rounded-[4rem] flex flex-col items-center justify-center text-zinc-800 p-12 text-center">
+              <div className="h-full min-h-[500px] border-2 border-dashed border-white/5 rounded-[4rem] flex flex-col items-center justify-center text-zinc-800 p-12 text-center bg-white/[0.01]">
                 <div className="w-24 h-24 bg-zinc-950 rounded-[2.5rem] flex items-center justify-center mb-8 border border-white/5 shadow-2xl">
-                   <svg className="w-10 h-10 opacity-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+                   <svg className="w-10 h-10 opacity-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 </div>
                 <h2 className="text-[12px] font-black uppercase tracking-[1em] text-zinc-700">Studio Standby</h2>
-                <p className="text-[9px] font-bold uppercase mt-4 tracking-widest text-zinc-800">Pronto para renderizar sua visão artística.</p>
+                <p className="text-[9px] font-bold uppercase mt-4 tracking-widest text-zinc-800">Seu ambiente de trabalho criativo está pronto.</p>
               </div>
             )}
           </div>
