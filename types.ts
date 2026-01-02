@@ -7,6 +7,7 @@ export interface GeneratedVersion {
   lighting: string;
   scenery: string;
   resolution: string;
+  groundingUrls?: string[];
 }
 
 export interface ArchitectureInfo {

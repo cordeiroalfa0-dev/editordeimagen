@@ -7,20 +7,23 @@ export const processImageRequest = async (
   command: string,
   numVersions: number = 3,
   isProMode: boolean = false,
-  resolution: "1K" | "2K" | "4K" = "1K"
+  resolution: "1K" | "2K" | "4K" = "1K",
+  useGrounding: boolean = false
 ): Promise<ProcessingResult> => {
-  const modelName = isProMode ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+  // Upgrade to gemini-3-pro-image-preview if grounding (googleSearch) is requested
+  const modelName = (isProMode || useGrounding) ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
   const requestId = `PRJ-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
   
   const logs: SystemLog[] = [
-    { timestamp: new Date().toLocaleTimeString(), message: `Pipeline Iterativo Ativo: ${requestId}`, type: 'info' },
-    { timestamp: new Date().toLocaleTimeString(), message: `Modo: ${modelName.toUpperCase()}`, type: 'telemetry' }
+    { timestamp: new Date().toLocaleTimeString(), message: `Pipeline Master Ativo: ${requestId}`, type: 'info' },
+    { timestamp: new Date().toLocaleTimeString(), message: `Grounding: ${useGrounding ? 'ATIVADO' : 'DESATIVADO'}`, type: 'telemetry' }
   ];
   
+  // Re-instantiate ai client right before usage to ensure current API key from environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // 1. Direção de Arte com Memória de Instrução
-  logs.push({ timestamp: new Date().toLocaleTimeString(), message: "Sincronizando contexto e novos objetos...", type: 'api' });
+  // 1. ANÁLISE E ENHANCEMENT (Transforma comando simples em briefing técnico)
+  logs.push({ timestamp: new Date().toLocaleTimeString(), message: "Aprimorando briefing visual...", type: 'api' });
   
   let artDirection: any = {};
   try {
@@ -29,96 +32,105 @@ export const processImageRequest = async (
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } },
-          { text: `Aja como um Editor Master de Imagem.
-                   CONTEXTO ATUAL: A imagem contém uma pessoa de costas na praia, sem camisa, com tatuagem 'Emerson' e um coração vermelho no glúteo, com areia na pele.
-                   NOVO COMANDO: "${command}".
+          { text: `Aja como um Diretor de Fotografia de Moda. 
+                   O usuário enviou uma imagem e o comando: "${command}".
                    
-                   REGRAS ABSOLUTAS DE PRESERVAÇÃO:
-                   1. MANTER a pessoa de costas e SEM CAMISA (bare back).
-                   2. MANTER a tatuagem 'Emerson' e o coração vermelho exatamente nos GLÚTEOS.
-                   3. MANTER a areia realista aderida à pele.
-                   4. INTEGRAR o novo elemento ("${command}") de forma cinematográfica.
-                   
-                   Tradução técnica para o renderizador:
-                   - Se for "bola de boliche": "A heavy, polished black bowling ball sitting in the sand next to the person".
+                   OBJETIVO: Criar 3 variações técnicas de prompt para um modelo de imagem.
+                   REGRAS: 
+                   1. Mantenha a identidade facial e proporções do corpo.
+                   2. Se houver tatuagens ou marcas, preserve-as.
+                   3. Descreva a iluminação em termos técnicos (Softbox, Rembrandt, Rim Light).
                    
                    Retorne JSON:
                    {
-                     "analise": "Briefing de integração",
-                     "promptsFisicos": ["Prompt Master 1", "Prompt 2", ...],
-                     "descricoes": ["V1: Adicionada bola de boliche mantendo tatuagem e topless", "v2", ...]
+                     "analise": "O que a IA entendeu da cena",
+                     "promptsFisicos": ["Prompt técnico 1", "Prompt técnico 2", "Prompt técnico 3"],
+                     "descricoes": ["Texto descritivo 1", "Texto descritivo 2", "Texto descritivo 3"]
                    }
-                   Gere ${numVersions} variantes.` }
+                   Gere EXATAMENTE ${numVersions} prompts.` }
         ]
       },
       config: { responseMimeType: "application/json" }
     });
+    // response.text directly returns the extracted string
     artDirection = JSON.parse(analysisResponse.text || "{}");
   } catch (e: any) {
-    if (e?.message?.includes('429')) throw new Error("QUOTA_EXCEEDED");
     artDirection = { 
-      analise: "Fallback de segurança.",
-      promptsFisicos: Array(numVersions).fill(`Incremental edit: ${command}. Bare back, tattoo 'Emerson' and heart on buttocks, sand on skin, high-end photography.`),
-      descricoes: Array(numVersions).fill("Ajuste cumulativo aplicado.")
+      analise: "Fallback mode ativo.",
+      promptsFisicos: Array(numVersions).fill(command),
+      descricoes: Array(numVersions).fill("Edição padrão aplicada.")
     };
+  }
+
+  // 2. BUSCA DE GROUNDING (Se ativado, busca referências reais no Google)
+  let groundingUrls: string[] = [];
+  if (useGrounding) {
+    logs.push({ timestamp: new Date().toLocaleTimeString(), message: "Consultando referências reais via Google Search...", type: 'api' });
+    try {
+      const searchResponse = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Encontre referências visuais reais e detalhes técnicos para: ${command}. Foque em cenários, arquitetura ou vestuário real.`,
+        config: { tools: [{ googleSearch: {} }] }
+      });
+      // Extract website URLs from groundingChunks
+      const chunks = searchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      if (chunks) {
+        groundingUrls = chunks.map((c: any) => c.web?.uri).filter(Boolean);
+      }
+    } catch (e) {}
   }
 
   const versions: GeneratedVersion[] = [];
 
+  // 3. RENDERIZAÇÃO DAS VERSÕES
   for (let i = 0; i < numVersions; i++) {
     const vId = `${requestId}-V${i+1}`;
-    logs.push({ timestamp: new Date().toLocaleTimeString(), message: `Renderizando Camadas V${i+1}...`, type: 'telemetry' });
+    logs.push({ timestamp: new Date().toLocaleTimeString(), message: `Gerando Variante ${i+1}...`, type: 'telemetry' });
     
-    const tryRender = async (prompt: string): Promise<string | null> => {
-      const currentAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      try {
-        const response = await currentAi.models.generateContent({
-          model: modelName,
-          contents: {
-            parts: [
-              { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } },
-              { text: `8K RESOLUTION. EDITORIAL PHOTOGRAPHY. ${prompt}. STICK TO THESE: Bare back (no top), visible 'Emerson' text tattoo on glutes with red heart, realistic sand grains on skin, ultra-sharp focus.` }
-            ]
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } },
+            { text: `PROFESSIONAL EDITORIAL PHOTO. 8K. ${artDirection.promptsFisicos[i]}. PRESERVE PERSON IDENTITY AND BODY MARKS. HIGH-END TEXTURES.` }
+          ]
+        },
+        config: { 
+          imageConfig: { 
+            aspectRatio: "1:1", 
+            // imageSize is only supported for gemini-3-pro-image-preview
+            ...((modelName === 'gemini-3-pro-image-preview') && { imageSize: resolution })
           },
-          config: { 
-            imageConfig: { 
-              aspectRatio: "1:1", 
-              ...(isProMode && { imageSize: resolution })
-            } 
-          }
-        });
-
-        const candidate = response.candidates?.[0];
-        if (!candidate || candidate.finishReason === 'SAFETY') return null;
-
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+          // googleSearch tool is only available for gemini-3-pro-image-preview
+          ...(modelName === 'gemini-3-pro-image-preview' && useGrounding && { tools: [{ googleSearch: {} }] })
         }
-        return null;
-      } catch (err: any) {
-        if (err?.message?.includes('429')) throw new Error("QUOTA_EXCEEDED");
-        if (err?.message?.includes('403')) throw new Error("PERMISSION_DENIED");
-        return null;
-      }
-    };
-
-    let imageUrl = await tryRender(artDirection.promptsFisicos[i]);
-
-    if (imageUrl) {
-      versions.push({
-        id: vId,
-        imageUrl,
-        description: artDirection.descricoes[i] || "Edição concluída com preservação de detalhes.",
-        style: "Couture Precision",
-        lighting: "Natural Beach",
-        scenery: "Praia",
-        resolution: isProMode ? resolution : "1K"
       });
-      logs.push({ timestamp: new Date().toLocaleTimeString(), message: `V${i+1}: Sincronizada.`, type: 'success' });
+
+      const candidate = response.candidates?.[0];
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          // Iterate through parts to find the image part (inlineData)
+          if (part.inlineData) {
+            versions.push({
+              id: vId,
+              imageUrl: `data:image/png;base64,${part.inlineData.data}`,
+              description: artDirection.descricoes[i] || "Variação profissional gerada.",
+              style: "Editorial Premium",
+              lighting: "Studio Master",
+              scenery: "Dynamic",
+              resolution: (modelName === 'gemini-3-pro-image-preview') ? resolution : "1K",
+              groundingUrls: groundingUrls.length > 0 ? groundingUrls : undefined
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Render error", err);
     }
   }
 
-  if (versions.length === 0) throw new Error("Falha no renderizador. Tente novamente.");
+  if (versions.length === 0) throw new Error("A IA de segurança bloqueou a geração ou ocorreu um erro técnico.");
 
   return {
     id: requestId,
