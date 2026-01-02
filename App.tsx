@@ -51,13 +51,14 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const applyStyleTemplate = (template: string) => {
-    const templates: Record<string, string> = {
-      vogue: "High-end editorial composition, fashion studio lighting.",
-      movie: "Cinematic film still, high dynamic range, artistic mood.",
-      noir: "Dramatic black and white, high contrast shadows, classic aesthetic."
+  const applySafeStyle = (style: string) => {
+    const safePrompts: Record<string, string> = {
+      vogue: "Iluminação editorial de alta moda, sombras dramáticas, cores vibrantes estilo revista.",
+      movie: "Estilo cinematográfico HDR, atmosfera de fim de tarde, foco nítido no cenário.",
+      noir: "Estético clássico em preto e branco, alto contraste, luz volumétrica."
     };
-    setCommand(templates[template] || "");
+    setCommand(safePrompts[style] || "");
+    setError(null);
   };
 
   const handleSubmit = async () => {
@@ -81,14 +82,17 @@ const App: React.FC = () => {
     } catch (err: any) {
       let type: 'quota' | 'safety' | 'general' = 'general';
       
-      if (err.message.includes("LIMITE")) {
+      if (err.message.includes("SISTEMA OCUPADO")) {
         type = 'quota';
-        setCooldown(10); // Apenas 10 segundos de espera agora!
+        setCooldown(15);
       }
-      if (err.message.includes("SISTEMA PROTEGIDO")) type = 'safety';
+      if (err.message.includes("RESTRIÇÃO DE IA")) {
+        type = 'safety';
+      }
       
       setError({ message: err.message, type });
-      setTimeout(() => setError(null), 6000);
+      // Remove o erro automaticamente após 8 segundos
+      setTimeout(() => setError(null), 8000);
     } finally {
       setIsProcessing(false);
     }
@@ -118,10 +122,25 @@ const App: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-6 py-12 lg:py-20 space-y-16 relative">
         
+        {/* Notificações Elegantes em vez de Banner Vermelho */}
         {error && (
-          <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[100] px-8 py-4 bg-zinc-900 border border-white/10 text-white rounded-[2rem] shadow-2xl backdrop-blur-xl flex items-center gap-4 animate-in slide-in-from-top-10">
-            <div className={`w-2 h-2 rounded-full ${error.type === 'safety' ? 'bg-red-500' : 'bg-amber-500'} animate-pulse`}></div>
-            <p className="text-[11px] font-black uppercase tracking-widest">{error.message}</p>
+          <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4 animate-in slide-in-from-top-10 duration-500">
+            <div className={`glass-panel p-6 rounded-[2.5rem] border shadow-2xl flex items-start gap-4 ${
+              error.type === 'safety' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'
+            }`}>
+              <div className={`w-3 h-3 rounded-full mt-1.5 shrink-0 ${error.type === 'safety' ? 'bg-red-500' : 'bg-amber-500'} animate-pulse`}></div>
+              <div className="flex-1 space-y-3">
+                <p className="text-[12px] font-bold leading-relaxed text-zinc-200">{error.message}</p>
+                {error.type === 'safety' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => applySafeStyle('vogue')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[9px] font-black uppercase tracking-widest transition-all">Tentar Estilo Seguro</button>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setError(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
           </div>
         )}
 
@@ -131,53 +150,54 @@ const App: React.FC = () => {
             <div className="flex items-center gap-4 mt-4">
               <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[8px] font-black uppercase text-zinc-400 tracking-[0.3em]">Sistema Livre</span>
+                <span className="text-[8px] font-black uppercase text-zinc-400 tracking-[0.3em]">IA Studio Master • Online</span>
               </div>
             </div>
           </div>
-          <div className="flex bg-zinc-900/50 p-1 rounded-2xl border border-white/5 backdrop-blur-xl">
-             <button onClick={() => setIsProMode(false)} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${!isProMode ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>Flash</button>
-             <button onClick={() => setIsProMode(true)} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${isProMode ? 'bg-indigo-500 text-white' : 'text-zinc-600'}`}>Pro</button>
+          <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 backdrop-blur-xl">
+             <button onClick={() => setIsProMode(false)} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isProMode ? 'bg-zinc-800 text-white shadow-xl' : 'text-zinc-600'}`}>Flash (Free)</button>
+             <button onClick={() => setIsProMode(true)} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${isProMode ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-zinc-600'}`}>Pro (Premium)</button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5 space-y-10">
-            <div className="glass-panel rounded-[3.5rem] p-8 premium-border shadow-2xl space-y-8 relative overflow-hidden">
+            <div className="glass-panel rounded-[4rem] p-10 premium-border shadow-2xl space-y-10 relative overflow-hidden">
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-square rounded-[2.5rem] border-2 border-dashed border-white/5 overflow-hidden relative group cursor-pointer bg-black/40 hover:bg-black/60 transition-all"
+                className="aspect-square rounded-[3rem] border-2 border-dashed border-white/5 overflow-hidden relative group cursor-pointer bg-black/40 hover:bg-black/60 transition-all"
               >
                 {selectedImage ? (
-                  <img src={selectedImage} className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110" />
+                  <img src={selectedImage} className="w-full h-full object-cover transition-transform duration-[12s] group-hover:scale-110" />
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20">
-                    <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 4v16m8-8H4"/></svg>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Adicionar Imagem</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-10">
+                    <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 4v16m8-8H4"/></svg>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Importar Ativo Visual</span>
                   </div>
                 )}
                 <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" />
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6 relative group">
                 <textarea 
                   value={command} 
                   onChange={(e) => setCommand(e.target.value)} 
-                  className="w-full bg-black/30 border border-white/5 rounded-[2.5rem] p-8 text-sm text-zinc-300 min-h-[160px] outline-none focus:border-indigo-500/30 transition-all placeholder:opacity-20" 
-                  placeholder="Comando de edição..."
+                  className="w-full bg-black/40 border border-white/5 rounded-[3rem] p-10 text-sm text-zinc-300 min-h-[180px] outline-none focus:border-indigo-500/30 transition-all placeholder:text-zinc-800 leading-relaxed shadow-inner" 
+                  placeholder="Instrução de Edição IA..."
                 />
                 
-                <div className="flex gap-2">
-                  <button onClick={() => applyStyleTemplate('vogue')} className="px-4 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest hover:bg-white/5"># Vogue</button>
-                  <button onClick={() => applyStyleTemplate('movie')} className="px-4 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest hover:bg-white/5"># Movie</button>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => applySafeStyle('vogue')} className="px-4 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest hover:bg-white/5 transition-all"># VOGUE</button>
+                  <button onClick={() => applySafeStyle('movie')} className="px-4 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest hover:bg-white/5 transition-all"># MOVIE</button>
+                  <button onClick={() => applySafeStyle('noir')} className="px-4 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest hover:bg-white/5 transition-all"># NOIR</button>
                 </div>
 
                 <button 
                   onClick={handleSubmit} 
                   disabled={isProcessing || !selectedImage || cooldown > 0}
-                  className={`w-full py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-xl ${isProcessing || cooldown > 0 ? 'bg-zinc-900 text-zinc-700' : 'bg-white text-black hover:bg-indigo-50 active:scale-95'}`}
+                  className={`w-full py-8 rounded-[2.5rem] font-black text-[11px] uppercase tracking-[0.5em] transition-all shadow-2xl ${isProcessing || cooldown > 0 ? 'bg-zinc-900 text-zinc-700' : 'bg-white text-black hover:bg-indigo-50 active:scale-95'}`}
                 >
-                  {isProcessing ? 'Processando' : cooldown > 0 ? `Aguarde ${cooldown}s` : 'Renderizar Agora'}
+                  {isProcessing ? 'Sincronizando...' : cooldown > 0 ? `Limitação de Cota: ${cooldown}s` : 'Iniciar Renderização'}
                 </button>
               </div>
             </div>
@@ -185,35 +205,39 @@ const App: React.FC = () => {
 
           <div className="lg:col-span-7">
             {isProcessing ? (
-              <div className="aspect-square glass-panel rounded-[4rem] flex flex-col items-center justify-center premium-border">
-                <div className="w-16 h-16 border-t-2 border-indigo-500 rounded-full animate-spin"></div>
-                <p className="mt-8 text-[11px] font-black uppercase tracking-[0.8em] text-indigo-500 animate-pulse">Gerando Ativos</p>
+              <div className="aspect-[4/5] glass-panel rounded-[5rem] flex flex-col items-center justify-center premium-border">
+                <div className="relative">
+                  <div className="w-20 h-20 border-t-2 border-indigo-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
+                  </div>
+                </div>
+                <p className="mt-12 text-[12px] font-black uppercase tracking-[1em] text-indigo-500 animate-pulse">Reconstruindo Ativo</p>
               </div>
             ) : result ? (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                <div className="flex gap-2 p-1.5 bg-zinc-900/30 rounded-2xl w-fit border border-white/5 backdrop-blur-md">
-                  <button onClick={() => setViewMode(ViewMode.GALLERY)} className={`px-8 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${viewMode === ViewMode.GALLERY ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>Grade</button>
-                  <button onClick={() => setViewMode(ViewMode.COMPARISON)} className={`px-8 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${viewMode === ViewMode.COMPARISON ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>Comparar</button>
+              <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="flex gap-2 p-1.5 bg-zinc-900/50 rounded-2xl w-fit border border-white/5 backdrop-blur-md">
+                  <button onClick={() => setViewMode(ViewMode.GALLERY)} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === ViewMode.GALLERY ? 'bg-zinc-800 text-white shadow-xl' : 'text-zinc-600'}`}>Grade</button>
+                  <button onClick={() => setViewMode(ViewMode.COMPARISON)} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === ViewMode.COMPARISON ? 'bg-zinc-800 text-white shadow-xl' : 'text-zinc-600'}`}>Antes/Depois</button>
                 </div>
 
                 {viewMode === ViewMode.GALLERY ? (
-                  <div className="grid grid-cols-1 gap-12">
+                  <div className="grid grid-cols-1 gap-16">
                     {result.versions.map((v, i) => (
-                      <div key={v.id} className="group relative glass-panel rounded-[3.5rem] overflow-hidden premium-border shadow-2xl">
-                        <img src={v.imageUrl} className="w-full aspect-[4/5] object-cover" alt="Resultado" />
-                        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-10 text-center gap-6">
-                           <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Variante {i+1}</p>
-                           <button onClick={() => window.open(v.imageUrl)} className="px-10 py-4 bg-white text-black text-[10px] font-black uppercase rounded-full hover:scale-105 transition-all">Baixar Imagem</button>
+                      <div key={v.id} className="group relative glass-panel rounded-[4rem] overflow-hidden premium-border shadow-2xl hover:translate-y-[-8px] transition-all duration-700">
+                        <img src={v.imageUrl} className="w-full aspect-[4/5] object-cover" alt="Resultado Final" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-12">
+                           <button onClick={() => window.open(v.imageUrl)} className="w-full py-6 bg-white text-black text-[11px] font-black uppercase rounded-[2rem] hover:scale-105 active:scale-95 transition-all shadow-2xl">Exportar PNG Alta Fidelidade</button>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[4rem] overflow-hidden premium-border glass-panel p-8 shadow-2xl">
+                  <div className="rounded-[5rem] overflow-hidden premium-border glass-panel p-10 shadow-2xl space-y-10">
                     <BeforeAfterSlider before={result.originalAlignedUrl || ''} after={result.versions[activeCompareIdx]?.imageUrl || ''} />
-                    <div className="flex gap-4 mt-8 overflow-x-auto pb-2">
+                    <div className="flex gap-6 overflow-x-auto pb-4 px-2">
                        {result.versions.map((v, idx) => (
-                         <button key={v.id} onClick={() => setActiveCompareIdx(idx)} className={`w-24 h-24 rounded-3xl border-2 transition-all overflow-hidden shrink-0 ${activeCompareIdx === idx ? 'border-indigo-500 scale-105' : 'border-white/5 opacity-40'}`}>
+                         <button key={v.id} onClick={() => setActiveCompareIdx(idx)} className={`w-32 h-32 rounded-[2.5rem] border-2 transition-all overflow-hidden shrink-0 ${activeCompareIdx === idx ? 'border-indigo-500 scale-105 shadow-2xl' : 'border-white/5 opacity-30 hover:opacity-100'}`}>
                             <img src={v.imageUrl} className="w-full h-full object-cover" />
                          </button>
                        ))}
@@ -222,8 +246,9 @@ const App: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="h-full min-h-[500px] border-2 border-dashed border-white/5 rounded-[4rem] flex flex-col items-center justify-center opacity-10">
-                <p className="text-[10px] font-black uppercase tracking-[0.5em]">Pronto para Renderizar</p>
+              <div className="h-full min-h-[640px] border-2 border-dashed border-white/5 rounded-[5rem] flex flex-col items-center justify-center opacity-10 grayscale p-20 text-center">
+                <svg className="w-24 h-24 mb-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] leading-relaxed max-w-xs mx-auto">Pronto para processamento visual avançado. Adicione uma imagem para começar o estúdio.</p>
               </div>
             )}
           </div>
