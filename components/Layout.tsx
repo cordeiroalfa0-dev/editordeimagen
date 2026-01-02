@@ -20,110 +20,113 @@ const Layout: React.FC<LayoutProps> = ({
   onSelectProject, 
   onDeleteProject,
   onClearHistory,
-  onExportLibrary,
   onGeneratePython
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center space-x-3 mb-12 p-2">
-        <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center font-black text-xl shadow-[0_10px_30px_rgba(99,102,241,0.4)] transform rotate-[-8deg]">V</div>
-        <div className="flex flex-col">
-          <span className="text-xl font-black tracking-tighter uppercase italic text-white leading-none">VisionEdit</span>
-          <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest mt-1">Master Studio</span>
+      {/* Brand */}
+      <div className="mb-12 px-2 flex items-center gap-4">
+        <div className="w-11 h-11 bg-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 transform -rotate-6">
+          <span className="font-black text-xl italic">V</span>
+        </div>
+        <div>
+          <h2 className="text-lg font-black tracking-tight text-white uppercase italic leading-none">VisionEdit</h2>
+          <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-[0.4em] mt-1.5">Studio Master Pro</p>
         </div>
       </div>
       
-      <div className="flex-1 flex flex-col space-y-8 overflow-hidden">
-        <div className="flex items-center justify-between px-2">
-          <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">Biblioteca</p>
-          {projects.length > 0 && (
-            <button onClick={onClearHistory} className="text-[8px] font-bold text-zinc-700 hover:text-red-500 transition-all uppercase tracking-widest">Wipe All</button>
-          )}
-        </div>
-        
-        <div className="flex-1 overflow-y-auto space-y-4 pr-3 custom-scrollbar">
-          {projects.length === 0 ? (
-            <div className="p-10 text-center border border-dashed border-white/5 rounded-[2.5rem] bg-white/[0.02]">
-              <p className="text-[9px] font-bold text-zinc-800 uppercase tracking-widest leading-loose">Sem Projetos</p>
-            </div>
-          ) : (
-            projects.map((p) => (
-              <div 
-                key={p.id} 
-                className={`group relative p-3 rounded-[1.5rem] border transition-all cursor-pointer ${activeProjectId === p.id ? 'bg-indigo-500/10 border-indigo-500/20 shadow-2xl shadow-indigo-500/10' : 'bg-zinc-900/30 border-white/5 hover:border-white/10'}`}
-                onClick={() => {
-                  onSelectProject(p);
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-black shrink-0 border border-white/5 shadow-inner">
-                    <img src={p.versions[0]?.imageUrl || p.originalAlignedUrl} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-white truncate uppercase tracking-tight">{p.id}</p>
-                    <p className="text-[9px] font-bold text-zinc-600 uppercase mt-1">{new Date(p.timestamp).toLocaleDateString()}</p>
-                  </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDeleteProject(p.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-zinc-700 hover:text-red-500 transition-all"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      {/* Search/Library Label */}
+      <div className="flex items-center justify-between px-2 mb-6">
+        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Ativos Recentes</span>
+        <button onClick={onClearHistory} className="text-[8px] font-bold text-zinc-700 hover:text-red-400 transition-colors uppercase">Limpar</button>
       </div>
 
-      <div className="pt-8 border-t border-white/5 mt-6">
+      {/* Projects List */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+        {projects.length === 0 ? (
+          <div className="py-12 px-4 text-center border border-white/5 rounded-[2rem] bg-white/[0.01]">
+            <p className="text-[9px] font-black text-zinc-800 uppercase tracking-widest">Nenhum projeto</p>
+          </div>
+        ) : (
+          projects.map((p) => (
+            <div 
+              key={p.id} 
+              onClick={() => { onSelectProject(p); setIsMobileMenuOpen(false); }}
+              className={`group relative p-3 rounded-2xl border transition-all duration-300 cursor-pointer flex items-center gap-4 ${activeProjectId === p.id ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/5'}`}
+            >
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-black shrink-0 border border-white/5">
+                <img src={p.versions[0]?.imageUrl || p.originalAlignedUrl} className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-zinc-300 truncate uppercase tracking-tight">{p.id}</p>
+                <p className="text-[8px] font-bold text-zinc-600 uppercase mt-0.5">{new Date(p.timestamp).toLocaleDateString()}</p>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDeleteProject(p.id); }}
+                className="opacity-0 group-hover:opacity-100 p-2 text-zinc-700 hover:text-red-500 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Bottom Actions */}
+      <div className="mt-8 pt-8 border-t border-white/5 space-y-3">
         <button 
           onClick={onGeneratePython}
-          className="w-full py-4 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 group"
+          className="w-full py-3.5 bg-zinc-900 text-zinc-400 hover:text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 active:scale-95"
         >
-          <svg className="w-4 h-4 text-indigo-500 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-          Export (.py)
+          <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+          Export Bridge (.py)
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex bg-transparent overflow-hidden relative">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex flex-col w-80 border-r border-white/5 p-8 bg-zinc-950/40 backdrop-blur-3xl z-20">
+    <div className="h-screen flex bg-[#020202] text-white overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-72 border-r border-white/5 p-8 glass-panel z-20">
         <SidebarContent />
       </aside>
 
-      {/* Sidebar - Mobile */}
-      <div className={`fixed inset-0 z-[60] lg:hidden transition-opacity duration-500 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-        <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={() => setIsMobileMenuOpen(false)} />
-        <aside className={`absolute left-0 top-0 bottom-0 w-[85%] max-w-xs bg-zinc-950 p-6 flex flex-col border-r border-white/5 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Mobile Sidebar Overlay */}
+      <div className={`fixed inset-0 z-[100] lg:hidden transition-all duration-500 ${isMobileMenuOpen ? 'visible bg-black/80 backdrop-blur-sm' : 'invisible bg-transparent opacity-0 pointer-events-none'}`}>
+        <aside className={`absolute left-0 top-0 bottom-0 w-72 bg-[#050505] p-6 border-r border-white/10 transition-transform duration-500 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <SidebarContent />
         </aside>
       </div>
 
-      {/* Content Container */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Mobile Navbar */}
-        <header className="h-20 border-b border-white/5 flex items-center justify-between px-6 bg-black/20 backdrop-blur-xl z-50 lg:hidden">
-           <button 
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-3 bg-zinc-900/50 rounded-xl text-zinc-300 border border-white/5"
-           >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
-           </button>
-           <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-500/20 italic">V</div>
-              <span className="font-black uppercase tracking-tighter italic text-white">Studio</span>
-           </div>
-           <div className="w-12"></div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Nav Bar */}
+        <header className="h-20 lg:h-24 px-6 lg:px-12 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-xl z-10 shrink-0">
+          <div className="flex items-center gap-6">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-2xl">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <div className="hidden lg:flex items-center gap-3">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-500">System Live</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-[1px] bg-white/5 mx-2 hidden md:block"></div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                <span className="text-[10px] font-black text-indigo-400">EP</span>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300 hidden md:block">Studio Admin</span>
+            </div>
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[radial-gradient(circle_at_50%_0%,_rgba(255,255,255,0.02)_0%,_transparent_50%)]">
           {children}
         </main>
       </div>

@@ -10,48 +10,69 @@
     <style>
         :root {
             --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
             --bg-deep: #020202;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: var(--bg-deep);
             color: #ffffff;
             margin: 0;
-            overflow-x: hidden;
+            overflow: hidden; /* Controlado pelo layout */
             background-image: 
-                radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.18), transparent 70%),
-                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.08), transparent 50%);
+                radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.15), transparent 80%),
+                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.05), transparent 50%);
             background-attachment: fixed;
             min-height: 100vh;
         }
 
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 1000;
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        .glass-panel {
+            background: rgba(10, 10, 15, 0.6);
+            backdrop-filter: blur(32px) saturate(200%);
+            border: 1px solid var(--glass-border);
         }
 
-        .glass-card {
-            background: rgba(20, 20, 25, 0.7);
-            backdrop-filter: blur(24px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        .premium-glow {
+            box-shadow: 0 0 30px -10px var(--accent-glow);
         }
 
-        .premium-border {
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .text-gradient {
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.7; }
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .animate-pulse-slow {
-            animation: pulse-slow 3s infinite ease-in-out;
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.6);
         }
+
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .floating { animation: float 6s ease-in-out infinite; }
     </style>
 <script type="importmap">
 {
