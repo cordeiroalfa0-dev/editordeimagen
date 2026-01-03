@@ -39,8 +39,8 @@ export interface SystemLog {
 export interface ProcessingResult {
   id: string;
   folderId?: string;
-  analysis: string;
-  confirmation: string;
+  analysis?: string;
+  confirmation?: string;
   versions: GeneratedVersion[];
   originalAlignedUrl?: string;
   architecture?: ArchitectureInfo;
@@ -51,6 +51,8 @@ export interface ProcessingResult {
     imageSize: ImageSize;
     mode: ModelMode;
   };
+  // Fix: Property 'error' does not exist on type 'ProcessingResult'
+  error?: string;
 }
 
 export enum ViewMode {

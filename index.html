@@ -10,22 +10,21 @@
     <meta name="apple-mobile-web-app-title" content="VisionOS">
     <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=V&background=800020&color=fff&size=192">
     <link rel="manifest" href="manifest.json">
-    <title>VisionOS - Estúdio Profissional</title>
+    <title>VisionOS - Ultra Fast</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent: #e11d48; /* Tom mais vibrante para contraste */
-            --wine-deep: #7f1d1d;
-            --accent-glow: rgba(225, 29, 72, 0.6);
+            --accent: #e11d48;
             --bg-deep: #0a0a0b;
-            --glass: rgba(18, 18, 20, 0.95);
-            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass: rgba(15, 15, 18, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
 
         * {
             -webkit-tap-highlight-color: transparent;
             outline: none !important;
+            box-sizing: border-box;
         }
 
         body {
@@ -34,69 +33,47 @@
             color: #ffffff;
             margin: 0;
             overflow: hidden;
-            background-image: 
-                radial-gradient(circle at 50% -10%, rgba(225, 29, 72, 0.1), transparent 60%),
-                url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
-            background-blend-mode: overlay;
-            background-attachment: fixed;
-            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, rgba(225, 29, 72, 0.08), transparent 50%);
             -webkit-font-smoothing: antialiased;
         }
 
-        /* EFEITO VINHO NEON */
+        /* PERFORMANCE: Reduzindo blur no mobile */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px); /* Reduzido de 50px para 12px para performance */
+            border: 1px solid var(--glass-border);
+        }
+
+        @media (max-width: 768px) {
+            .glass-panel {
+                backdrop-filter: none; /* Desativa blur em mobile para economizar bateria/CPU */
+                background: rgba(20, 20, 22, 0.98);
+            }
+        }
+
         .text-wine-glow {
-            color: #fb7185; /* Rosa claro para base do brilho */
             background: linear-gradient(to bottom, #fb7185, #e11d48);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 15px rgba(225, 29, 72, 0.5), 0 0 30px rgba(225, 29, 72, 0.2);
-            filter: drop-shadow(0 0 2px rgba(225, 29, 72, 0.8));
         }
 
         .label-wine {
             color: #fb7185;
             text-transform: uppercase;
-            letter-spacing: 0.3em;
+            letter-spacing: 0.2em;
             font-weight: 800;
-            text-shadow: 0 0 10px rgba(225, 29, 72, 0.4);
+            font-size: 0.7rem;
         }
 
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-        .glass-panel {
-            background: var(--glass);
-            backdrop-filter: blur(50px) saturate(200%);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.8);
-        }
+        /* Animações Ultra Rápidas */
+        .fast-fade { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .neo-button {
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .neo-button:hover {
-            box-shadow: 0 0 35px var(--accent-glow);
-            transform: translateY(-3px);
-        }
-
-        @keyframes pulse-wine-glow {
-            0%, 100% { opacity: 0.8; filter: brightness(1); }
-            50% { opacity: 1; filter: brightness(1.5); }
-        }
-
-        .animate-wine-pulse {
-            animation: pulse-wine-glow 2s ease-in-out infinite;
-        }
-
-        textarea::placeholder {
-            color: #52525b;
-            font-weight: 600;
-        }
+        .neo-button { transition: transform 0.1s ease, box-shadow 0.1s ease; }
+        .neo-button:active { transform: scale(0.96); }
     </style>
 <script type="importmap">
 {
@@ -109,7 +86,7 @@
 }
 </script>
 </head>
-<body class="antialiased selection:bg-[#e11d48] selection:text-white">
+<body class="antialiased">
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>

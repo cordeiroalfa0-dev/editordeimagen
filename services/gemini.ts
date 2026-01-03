@@ -72,8 +72,10 @@ export const processImageRequest = async (
       return { 
         id: requestId, 
         error: reasons[candidate.finishReason] || `FALHA TÉCNICA (${candidate.finishReason}): Tente reformular sua ideia.`,
-        timestamp: Date.now() 
-      } as any;
+        timestamp: Date.now(),
+        versions: [],
+        logs: []
+      } as ProcessingResult;
     }
 
     const versions: GeneratedVersion[] = [];
@@ -102,8 +104,10 @@ export const processImageRequest = async (
       return { 
         id: requestId, 
         error: feedbackText || "O motor processou a requisição mas não conseguiu renderizar a imagem.", 
-        timestamp: Date.now() 
-      } as any;
+        timestamp: Date.now(),
+        versions: [],
+        logs: []
+      } as ProcessingResult;
     }
 
     return {
@@ -119,10 +123,18 @@ export const processImageRequest = async (
 
   } catch (error: any) {
     const msg = error.message || "";
+    // MANDATORY: If the request fails with this specific message, prompt for API key selection again for Pro models.
+    if (msg.includes("Requested entity was not found.") && mode === 'Pro') {
+      if ((window as any).aistudio?.openSelectKey) {
+        (window as any).aistudio.openSelectKey();
+      }
+    }
     return { 
       id: requestId, 
       error: `FALHA NO SISTEMA: ${msg.substring(0, 120)}`, 
-      timestamp: Date.now() 
-    } as any;
+      timestamp: Date.now(),
+      versions: [],
+      logs: []
+    } as ProcessingResult;
   }
 };

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 
 interface BeforeAfterSliderProps {
   before: string;
@@ -10,47 +10,48 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, af
   const [sliderPos, setSliderPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const position = ((x - rect.left) / rect.width) * 100;
+    
+    // Performance: Usa requestAnimationFrame implicitamente apenas atualizando o estado
     setSliderPos(Math.max(0, Math.min(100, position)));
-  };
+  }, []);
 
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden cursor-ew-resize select-none bg-black"
+      className="relative w-full h-full overflow-hidden cursor-ew-resize select-none bg-black group"
       onMouseMove={handleMove}
       onTouchMove={handleMove}
-      onMouseDown={(e) => { e.preventDefault(); }}
     >
-      <img src={after} alt="Render" className="absolute inset-0 w-full h-full object-cover" />
+      <img src={after} alt="After" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
       
       <div 
-        className="absolute inset-0 w-full h-full overflow-hidden border-r-4 border-[#e11d48] transition-none shadow-[20px_0_40px_rgba(0,0,0,0.5)]"
+        className="absolute inset-0 w-full h-full overflow-hidden border-r-2 border-[#e11d48] will-change-[width]"
         style={{ width: `${sliderPos}%` }}
       >
         <img 
             src={before} 
-            alt="Original" 
-            className="absolute inset-0 w-full h-full object-cover" 
+            alt="Before" 
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none" 
             style={{ width: `${100 / (sliderPos/100)}%`, maxWidth: 'none' }} 
         />
-        <div className="absolute top-12 left-12 bg-black/90 backdrop-blur-3xl px-12 py-5 rounded-[2rem] text-lg font-black text-white uppercase tracking-[0.4em] border-2 border-white/10 shadow-[0_0_50px_rgba(0,0,0,1)]">ORIGINAL</div>
+        <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded text-[8px] font-bold text-white uppercase tracking-widest">ORIGINAL</div>
       </div>
 
       <div 
-        className="absolute inset-y-0 w-[6px] bg-[#e11d48] flex items-center justify-center transition-none shadow-[0_0_50px_rgba(225,29,72,1)]"
+        className="absolute inset-y-0 w-[2px] bg-[#e11d48] flex items-center justify-center will-change-[left]"
         style={{ left: `${sliderPos}%` }}
       >
-        <div className="w-20 h-20 bg-white rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,1)] flex items-center justify-center -ml-[3px] group active:scale-125 transition-all">
-          <div className="w-10 h-[4px] bg-black rotate-90 rounded-full"></div>
+        <div className="w-6 h-6 bg-white rounded-lg shadow-xl flex items-center justify-center -ml-[1px]">
+          <div className="w-3 h-0.5 bg-black rotate-90 rounded-full"></div>
         </div>
       </div>
 
-      <div className="absolute top-12 right-12 bg-[#e11d48] px-12 py-5 rounded-[2rem] text-lg font-black text-white uppercase tracking-[0.4em] shadow-[0_0_60px_rgba(225,29,72,0.6)] border-2 border-[#fb7185]/30">IA_RENDER</div>
+      <div className="absolute top-4 right-4 bg-[#e11d48] px-3 py-1 rounded text-[8px] font-bold text-white uppercase tracking-widest">RENDER</div>
     </div>
   );
 };
