@@ -1,0 +1,48 @@
+
+{
+  "name": "VisionOS Studio Master",
+  "short_name": "VisionOS",
+  "description": "Estúdio Profissional de Edição e Variação de Imagens via IA de alta performance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#010101",
+  "theme_color": "#010101",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "photo", "graphics"],
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=V&background=6366f1&color=fff&size=192",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=V&background=6366f1&color=fff&size=192&rounded=true",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=VisionOS&background=6366f1&color=fff&size=512",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo Render",
+      "short_name": "Render",
+      "description": "Abrir o estúdio para novo render",
+      "url": "/",
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=R&background=6366f1&color=fff&size=96", "sizes": "96x96" }]
+    },
+    {
+      "name": "Ver Histórico",
+      "short_name": "Histórico",
+      "description": "Ver seus renders salvos",
+      "url": "/#history",
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=H&background=6366f1&color=fff&size=96", "sizes": "96x96" }]
+    }
+  ]
+}

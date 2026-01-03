@@ -24,24 +24,43 @@ const App: React.FC = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | undefined>(undefined);
   const [statusMsg, setStatusMsg] = useState<{ text: string, type: 'error' | 'info' | 'success' | 'warning' } | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.COMPARISON); // Inicia no Studio para ação rápida
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.COMPARISON);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   
   const operatorEmail = "emerson.cordeiro00894687@sesisenaipr.org.br";
   const [modelMode, setModelMode] = useState<ModelMode>('Standard');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
+  const [genMode, setGenMode] = useState<'Edit' | 'Create'>('Edit');
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     refreshData();
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setFullscreenImage(null);
     };
     window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('keydown', handleEsc);
+    };
   }, []);
+
+  const installPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
 
   const refreshData = async () => {
     const p = await getAllProjects();
@@ -55,51 +74,50 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       setSelectedImage(e.target?.result as string);
       setResult(null);
-      setCommand('');
+      setGenMode('Edit');
       setViewMode(ViewMode.COMPARISON);
-      setStatusMsg({ text: "ARQUIVO CARREGADO DO PC", type: 'success' });
+      setStatusMsg({ text: "ASSET_SINCRONIZADO", type: 'success' });
       setTimeout(() => setStatusMsg(null), 2000);
     };
     reader.readAsDataURL(file);
   };
 
-  const masterReset = () => {
-    setSelectedImage(null);
-    setResult(null);
-    setCommand('');
-    setViewMode(ViewMode.COMPARISON);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
-  };
+  const openFileSelector = () => fileInputRef.current?.click();
+  const openCamera = () => cameraInputRef.current?.click();
 
   const downloadAsset = (url: string, filename: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VISION-RENDER-${filename}.png`;
+    link.download = `VISION-OS-V3-${filename}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setStatusMsg({ text: "SALVO EM SEU COMPUTADOR", type: 'success' });
-    setTimeout(() => setStatusMsg(null), 2000);
   };
 
   const viewProjectHistory = (p: ProcessingResult) => {
     setResult(p);
     setSelectedImage(p.originalAlignedUrl || null);
+    setGenMode(p.originalAlignedUrl ? 'Edit' : 'Create');
     setViewMode(ViewMode.COMPARISON);
   };
 
   const useProjectAsBase = (p: ProcessingResult) => {
     setSelectedImage(p.versions[0].imageUrl);
     setResult(null);
-    setCommand('');
+    setGenMode('Edit');
     setViewMode(ViewMode.COMPARISON);
   };
 
   const handleRun = async () => {
-    if (!selectedImage || isProcessing) return;
+    if (isProcessing) return;
+    if (genMode === 'Edit' && !selectedImage) {
+      setStatusMsg({ text: "IMAGEM_OBRIGATÓRIA", type: 'warning' });
+      return;
+    }
+    if (command.trim().length < 3) {
+      setStatusMsg({ text: "PROMPT_VAZIO", type: 'warning' });
+      return;
+    }
 
     if (modelMode === 'Pro') {
       const aistudio = (window as any).aistudio;
@@ -109,10 +127,11 @@ const App: React.FC = () => {
     }
     
     setIsProcessing(true);
-    setStatusMsg({ text: "SINCRO COM O MOTOR EM CURSO...", type: 'warning' });
+    setStatusMsg({ text: "SINTETIZANDO_BLOCOS...", type: 'warning' });
     
     try {
-      const data: any = await processImageRequest(selectedImage, command, modelMode, aspectRatio, imageSize);
+      const imageToProcess = genMode === 'Edit' ? selectedImage : null;
+      const data: any = await processImageRequest(imageToProcess as string, command, modelMode, aspectRatio, imageSize);
       
       if (data.error) {
         setStatusMsg({ text: data.error, type: 'error' });
@@ -125,11 +144,11 @@ const App: React.FC = () => {
       setResult(dataWithFolder);
       await refreshData();
       
-      setStatusMsg({ text: "PROCESSO FINALIZADO", type: 'success' });
+      setStatusMsg({ text: "SÍNTESE_CONCLUÍDA", type: 'success' });
       setTimeout(() => setStatusMsg(null), 3000);
       
     } catch (e: any) {
-      setStatusMsg({ text: "FALHA NA CONEXÃO", type: 'error' });
+      setStatusMsg({ text: "FALHA_CONEXÃO_DADOS", type: 'error' });
     } finally {
       setIsProcessing(false);
     }
@@ -144,173 +163,174 @@ const App: React.FC = () => {
       operatorEmail={operatorEmail}
       onSelectProject={viewProjectHistory}
       onDeleteProject={async id => { await deleteProject(id); refreshData(); setResult(null); }}
-      onClearHistory={async () => { if(confirm("Limpar base de dados interna?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
+      onClearHistory={async () => { if(confirm("LIMPAR_DADOS?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
       onGeneratePython={() => {}}
       onCreateFolder={async n => { await saveFolder({id: `DIR-${Date.now()}`, name: n, timestamp: Date.now()}); refreshData(); }}
       onSelectFolder={(id) => { setActiveFolderId(id); setViewMode(ViewMode.HISTORY); }}
       onDeleteFolder={async id => { await deleteFolder(id); refreshData(); }}
       onMoveProject={updateProjectFolder}
+      onInstallApp={deferredPrompt ? installPWA : undefined}
     >
-      <div className="max-w-[1700px] mx-auto px-10 py-10 space-y-12 pb-40">
+      <div className="max-w-[1800px] mx-auto px-4 md:px-12 py-6 md:py-10 space-y-8 md:space-y-12 pb-32 fade-in-studio">
         
-        {/* CABEÇALHO DE COMANDO RÁPIDO */}
-        <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center bg-[#050505] p-8 rounded-[3rem] border border-white/5 shadow-2xl">
-           <div className="flex gap-6">
+        {/* BARRA DE STATUS SUPERIOR */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-between items-stretch sm:items-center bg-zinc-900/40 backdrop-blur-3xl p-4 sm:p-6 rounded-[2rem] sm:rounded-[3rem] border border-white/5 shadow-2xl">
+           <div className="flex flex-1 gap-2 sm:gap-4">
               <button 
-                onClick={masterReset} 
-                className="px-10 py-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] transition-all flex items-center gap-3 shadow-[0_10px_30px_rgba(220,38,38,0.3)]"
+                onClick={() => setViewMode(ViewMode.COMPARISON)} 
+                className={`flex-1 sm:flex-none px-6 sm:px-12 py-4 sm:py-5 rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] transition-all neo-button ${viewMode === ViewMode.COMPARISON ? 'bg-white text-black shadow-xl' : 'bg-white/5 text-zinc-500 border border-white/5 hover:bg-white/10'}`}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                Começar do Zero
+                ESTÚDIO_MESTRE
               </button>
               <button 
                 onClick={() => setViewMode(ViewMode.HISTORY)} 
-                className="px-10 py-5 bg-zinc-900 border border-white/10 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
+                className={`flex-1 sm:flex-none px-6 sm:px-12 py-4 sm:py-5 rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] transition-all neo-button ${viewMode === ViewMode.HISTORY ? 'bg-white text-black shadow-xl' : 'bg-white/5 text-zinc-500 border border-white/5 hover:bg-white/10'}`}
               >
-                Ver Histórico
+                ARQUIVO_LOCAL
               </button>
            </div>
            
-           <div className="flex gap-4">
-              <div className="px-6 py-4 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl text-center">
-                 <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Assets no Banco</p>
-                 <p className="text-[12px] font-black text-white">{projects.length}</p>
+           <div className="hidden sm:flex gap-6 items-center pr-4">
+              <div className="text-right">
+                 <p className="text-[8px] font-black text-[#9b1b30] uppercase tracking-widest">Motor_Principal</p>
+                 <p className="text-[11px] font-black text-white uppercase tracking-tighter">VisionOS_V3.0</p>
               </div>
-              <div className="px-6 py-4 bg-emerald-600/10 border border-emerald-500/20 rounded-2xl text-center">
-                 <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Sincronização</p>
-                 <p className="text-[12px] font-black text-white uppercase tracking-tighter">ONLINE</p>
+              <div className="h-10 w-px bg-white/10"></div>
+              <div className="text-right">
+                 <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Nós_Sincronizados</p>
+                 <p className="text-[11px] font-black text-white">{projects.length}</p>
               </div>
            </div>
         </div>
 
         {statusMsg && (
-          <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[60] px-12 py-6 rounded-3xl border backdrop-blur-3xl shadow-2xl animate-in slide-in-from-bottom-10 ${statusMsg.type === 'error' ? 'bg-red-500/20 border-red-500 text-red-200' : 'bg-emerald-500/20 border-emerald-500 text-emerald-100'}`}>
-             <p className="text-[11px] font-black uppercase tracking-[0.4em]">{statusMsg.text}</p>
+          <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm px-8 py-5 rounded-2xl border backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] animate-in slide-in-from-bottom-10 ${statusMsg.type === 'error' ? 'bg-red-950/20 text-red-200 border-red-500/50' : 'bg-[#9b1b30]/10 text-rose-100 border-[#9b1b30]/50'}`}>
+             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-center">{statusMsg.text}</p>
           </div>
         )}
 
         {viewMode === ViewMode.HISTORY ? (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5">
-             <div className="flex justify-between items-end border-b border-white/5 pb-8">
-                <div>
-                   <h2 className="text-3xl font-black uppercase tracking-tighter">Explorador de Arquivos</h2>
-                   <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.4em] mt-2">Clique em "Editar como Base" para re-injetar um render no motor.</p>
-                </div>
-                <button onClick={() => setViewMode(ViewMode.COMPARISON)} className="px-8 py-4 bg-white text-black text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl hover:scale-105 transition-all">Voltar ao Studio</button>
+          <div className="space-y-10 animate-in fade-in duration-500">
+             <div className="border-b border-white/10 pb-8">
+                <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter">Repositório_de_Nós</h2>
+                <p className="text-[10px] sm:text-[11px] font-bold text-zinc-600 uppercase tracking-[0.4em] mt-2">Banco de dados em arquitetura grafite e vinho.</p>
              </div>
              
-             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-               <div onClick={masterReset} className="aspect-square bg-indigo-600/5 rounded-[3rem] border-2 border-dashed border-indigo-500/20 flex flex-col items-center justify-center cursor-pointer hover:bg-indigo-600/10 hover:border-indigo-500 transition-all group">
-                  <div className="w-16 h-16 rounded-full bg-indigo-600/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"/></svg>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-6 text-indigo-400">Importar Novo</p>
-               </div>
+             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-8">
                {projects.map(p => (
-                 <div key={p.id} className="group relative aspect-square bg-zinc-900/40 rounded-[3rem] border border-white/5 overflow-hidden transition-all hover:border-white/20">
-                    <img src={p.versions[0].imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1.5s]" />
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-10 space-y-4 text-center">
-                       <button onClick={() => useProjectAsBase(p)} className="w-full py-4 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all">Editar Base</button>
-                       <button onClick={() => downloadAsset(p.versions[0].imageUrl, p.id)} className="w-full py-4 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-500 transition-all">Salvar no PC</button>
-                       <button onClick={() => {if(confirm("Excluir?")) {deleteProject(p.id); refreshData();}}} className="text-[9px] font-black text-red-500 uppercase tracking-widest pt-4">Excluir Asset</button>
+                 <div key={p.id} className="group relative aspect-square bg-zinc-900/40 rounded-[2.5rem] border border-white/5 overflow-hidden transition-all hover:border-[#9b1b30]/50 hover:shadow-[0_0_40px_rgba(155,27,48,0.15)]">
+                    <img src={p.versions[0].imageUrl} className="w-full h-full object-cover transition-transform duration-[2.5s] group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-lg opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-8 space-y-4">
+                       <button onClick={() => useProjectAsBase(p)} className="w-full py-4 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-xl">Recarregar</button>
+                       <button onClick={() => downloadAsset(p.versions[0].imageUrl, p.id)} className="w-full py-4 bg-[#9b1b30] text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Exportar</button>
+                       <button onClick={() => {if(confirm("EXCLUIR_NÓ?")) {deleteProject(p.id); refreshData();}}} className="text-[8px] font-black text-zinc-500 uppercase tracking-widest pt-2 hover:text-red-500">Excluir</button>
                     </div>
                  </div>
                ))}
+               {projects.length === 0 && (
+                 <div className="col-span-full py-32 text-center border-2 border-dashed border-white/5 rounded-[4rem] opacity-20">
+                   <p className="text-[11px] font-black uppercase tracking-[1em]">Repositório_Vazio</p>
+                 </div>
+               )}
              </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 animate-in fade-in duration-700">
-            {/* PAINEL DE CONTROLE ESQUERDO */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
+            {/* BLOCO DE CONTROLE */}
             <div className="lg:col-span-4 space-y-8">
-               <div className="bg-[#080808] p-10 rounded-[4rem] border border-white/5 space-y-10 shadow-2xl">
-                  <div>
-                    <label className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.6em] mb-6 block px-2">Comandos da IA</label>
+               <div className="glass-panel p-8 sm:p-12 rounded-[3.5rem] space-y-8 sm:space-y-12 shadow-[0_80px_160px_rgba(0,0,0,0.8)]">
+                  
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] px-2">Modo_do_Pipeline</label>
+                    <div className="flex gap-2 p-1.5 bg-black/40 rounded-[1.5rem] border border-white/5">
+                       <button onClick={() => setGenMode('Edit')} className={`flex-1 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${genMode === 'Edit' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Editar_Buffer</button>
+                       <button onClick={() => setGenMode('Create')} className={`flex-1 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${genMode === 'Create' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Sintetizar_Puro</button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] px-2">Comando_Operacional</label>
                     <textarea 
                       value={command}
                       onChange={e => setCommand(e.target.value)}
-                      className="w-full bg-zinc-900/40 p-8 rounded-[2.5rem] text-sm outline-none border border-white/5 focus:border-indigo-500/50 transition-all min-h-[180px] leading-relaxed"
-                      placeholder="Descreva as modificações. Ex: 'Adicionar jaqueta de couro preta e mudar cenário para Tóquio à noite'..."
+                      className="w-full bg-black/60 p-8 rounded-[2rem] text-sm outline-none border border-white/5 focus:border-[#9b1b30]/50 transition-all min-h-[160px] custom-scrollbar leading-relaxed placeholder:text-zinc-800"
+                      placeholder={genMode === 'Edit' ? "Defina os ajustes estruturais..." : "Descreva os atributos da síntese..."}
                     />
                   </div>
 
                   <div className="space-y-8">
                     <div className="grid grid-cols-2 gap-4">
-                       <button onClick={() => setModelMode('Standard')} className={`py-5 rounded-2xl text-[10px] font-black border transition-all ${modelMode === 'Standard' ? 'bg-white text-black border-white shadow-xl' : 'border-white/5 text-zinc-600'}`}>FLASH FREE</button>
-                       <button onClick={() => setModelMode('Pro')} className={`py-5 rounded-2xl text-[10px] font-black border transition-all ${modelMode === 'Pro' ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl' : 'border-white/5 text-zinc-600'}`}>PRO MASTER</button>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {["1:1", "16:9", "9:16", "4:3", "3:4"].map(r => (
-                        <button key={r} onClick={() => setAspectRatio(r as AspectRatio)} className={`py-3 rounded-xl text-[10px] font-black border transition-all ${aspectRatio === r ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' : 'border-white/5 text-zinc-700'}`}>{r}</button>
-                      ))}
+                       <button onClick={() => setModelMode('Standard')} className={`py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${modelMode === 'Standard' ? 'bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.1)]' : 'border-white/5 text-zinc-600'}`}>Modo_Flash</button>
+                       <button onClick={() => setModelMode('Pro')} className={`py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${modelMode === 'Pro' ? 'bg-[#9b1b30] text-white border-[#9b1b30] shadow-[0_0_30px_rgba(155,27,48,0.4)]' : 'border-white/5 text-zinc-600'}`}>Pro_Ultra</button>
                     </div>
                   </div>
 
                   <button 
                     onClick={handleRun}
-                    disabled={isProcessing || !selectedImage}
-                    className={`w-full py-7 rounded-[2rem] font-black text-[14px] uppercase tracking-[0.8em] transition-all ${isProcessing ? 'bg-zinc-800 text-zinc-600' : 'bg-white text-black hover:bg-zinc-100 shadow-[0_30px_60px_rgba(255,255,255,0.05)] active:scale-95'}`}
+                    disabled={isProcessing}
+                    className={`w-full py-8 sm:py-9 rounded-[2.5rem] font-black text-[13px] uppercase tracking-[0.8em] transition-all neo-button ${isProcessing ? 'bg-zinc-950 text-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.01] shadow-[0_30px_60px_rgba(0,0,0,0.4)] active:scale-95'}`}
                   >
-                    {isProcessing ? 'SINCRO EM CURSO...' : 'LIBERAR RENDER'}
+                    {isProcessing ? 'SINTETIZANDO...' : 'INICIAR_SÍNTESE'}
                   </button>
                </div>
             </div>
 
-            {/* VIEWPORT CENTRAL */}
-            <div className="lg:col-span-8 space-y-10">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  {/* SLOT 01: ORIGEM DO PC */}
-                  <div className="space-y-6">
-                     <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em] px-8">Input do Computador</p>
+            {/* BUFFER_DE_VISUALIZAÇÃO */}
+            <div className="lg:col-span-8 space-y-12">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-12">
+                  {/* ENTRADA */}
+                  <div className={`space-y-6 transition-all duration-1000 ${genMode === 'Create' ? 'opacity-10 grayscale scale-95 pointer-events-none' : ''}`}>
+                     <div className="flex justify-between items-center px-6">
+                        <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em]">Buffer_Entrada</p>
+                        <div className="flex gap-6">
+                           <button onClick={openCamera} className="text-[10px] font-black text-[#9b1b30] uppercase tracking-widest sm:hidden">Capturar</button>
+                           <button onClick={openFileSelector} className="text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-white transition-colors">Carregar_Asset</button>
+                        </div>
+                     </div>
                      <div 
-                        onClick={masterReset}
-                        className="aspect-square bg-zinc-900/20 rounded-[4.5rem] border border-white/5 relative group cursor-pointer overflow-hidden flex items-center justify-center hover:border-white/20 transition-all shadow-inner"
+                        onClick={genMode === 'Edit' ? openFileSelector : undefined}
+                        className="aspect-square bg-zinc-950/40 rounded-[4.5rem] border border-white/5 relative overflow-hidden flex items-center justify-center cursor-pointer group shadow-inner"
                      >
+                        <div className="absolute inset-0 scanline opacity-10"></div>
                         {selectedImage ? (
-                           <img src={selectedImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[3s]" />
+                           <img src={selectedImage} className="w-full h-full object-cover transition-transform duration-[5s] group-hover:scale-105" />
                         ) : (
-                           <div className="text-center space-y-6 opacity-30 group-hover:opacity-100 transition-opacity p-10">
-                              <div className="w-24 h-24 rounded-full border-2 border-white/10 flex items-center justify-center mx-auto mb-4">
-                                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                              </div>
-                              <p className="text-[13px] font-black uppercase tracking-[0.5em] text-white">Adicionar Asset Local</p>
-                              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Clique aqui para abrir seu PC</p>
+                           <div className="text-center p-12 opacity-20 group-hover:opacity-100 transition-opacity">
+                              <svg className="w-16 h-16 mx-auto mb-6 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                              <p className="text-[11px] font-black uppercase tracking-[0.8em]">Entrada_Necessária</p>
                            </div>
                         )}
-                        {selectedImage && (
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                             <p className="text-[10px] font-black uppercase tracking-widest text-white border-b border-white/50 pb-2">Trocar Arquivo do PC</p>
-                          </div>
-                        )}
+                        <div className="absolute inset-0 bg-[#9b1b30]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                      </div>
                   </div>
 
-                  {/* SLOT 02: OUTPUT RENDERIZADO */}
+                  {/* SAÍDA */}
                   <div className="space-y-6">
-                     <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em] px-8">Output do Motor AI</p>
-                     <div className="aspect-square bg-[#030303] rounded-[4.5rem] border border-white/5 relative overflow-hidden flex items-center justify-center shadow-2xl">
+                     <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em] px-6">Fluxo_de_Saída</p>
+                     <div className="aspect-square bg-[#030304] rounded-[4.5rem] border border-white/5 relative overflow-hidden flex items-center justify-center shadow-[0_60px_120px_rgba(0,0,0,0.9)]">
                         {isProcessing ? (
                            <div className="text-center">
-                              <div className="w-24 h-24 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-10 shadow-[0_0_50px_rgba(99,102,241,0.2)]"></div>
-                              <p className="text-[11px] font-black uppercase text-white tracking-[0.6em] animate-pulse">Sincronizando Pixels...</p>
+                              <div className="w-20 h-20 border-[3px] border-[#9b1b30] border-t-transparent rounded-full animate-spin mx-auto mb-10 shadow-[0_0_40px_rgba(155,27,48,0.2)]"></div>
+                              <p className="text-[10px] font-black uppercase text-white tracking-[0.8em] animate-pulse">Renderizando_Frames...</p>
                            </div>
                         ) : result ? (
                            <>
-                              <BeforeAfterSlider before={selectedImage || ''} after={result.versions[0].imageUrl} />
-                              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-4">
-                                 <button 
-                                   onClick={() => downloadAsset(result.versions[0].imageUrl, result.id)}
-                                   className="px-10 py-5 bg-white text-black text-[11px] font-black uppercase tracking-[0.3em] rounded-2xl hover:scale-110 transition-all shadow-2xl"
-                                 >
-                                   Salvar no Meu PC
-                                 </button>
-                                 <button onClick={() => setFullscreenImage(result.versions[0].imageUrl)} className="p-5 bg-black/60 backdrop-blur-3xl rounded-2xl border border-white/10 text-white">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                              <div className="absolute inset-0 scanline opacity-10 pointer-events-none"></div>
+                              {genMode === 'Edit' && selectedImage ? (
+                                <BeforeAfterSlider before={selectedImage} after={result.versions[0].imageUrl} />
+                              ) : (
+                                <img src={result.versions[0].imageUrl} className="w-full h-full object-cover animate-in zoom-in-95 duration-1000" />
+                              )}
+                              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-50">
+                                 <button onClick={() => downloadAsset(result.versions[0].imageUrl, result.id)} className="px-10 py-5 bg-white text-black text-[11px] font-black uppercase tracking-widest rounded-2xl shadow-2xl neo-button">Baixar</button>
+                                 <button onClick={() => setFullscreenImage(result.versions[0].imageUrl)} className="p-5 bg-black/60 backdrop-blur-2xl rounded-2xl border border-white/10 text-white hover:bg-white hover:text-black transition-all">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                                  </button>
                               </div>
                            </>
                         ) : (
-                           <div className="text-center opacity-20 p-10">
-                              <p className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-500">Renderizador Aguardando</p>
+                           <div className="text-center opacity-10 p-12">
+                              <p className="text-[11px] font-black uppercase tracking-[1em]">Buffer_Inativo</p>
                            </div>
                         )}
                      </div>
@@ -320,22 +340,17 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INPUT DE ARQUIVO OCULTO */}
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} 
-          className="hidden" 
-          accept="image/*"
-        />
+        {/* INPUTS OCULTOS */}
+        <input type="file" ref={fileInputRef} onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} className="hidden" accept="image/*" />
+        <input type="file" ref={cameraInputRef} onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} className="hidden" accept="image/*" capture="environment" />
       </div>
 
       {fullscreenImage && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-10 animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-16 animate-in fade-in duration-500">
           <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl" onClick={() => setFullscreenImage(null)}></div>
-          <img src={fullscreenImage} className="relative max-w-full max-h-full object-contain rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,1)]" />
-          <button onClick={() => setFullscreenImage(null)} className="absolute top-12 right-12 p-6 bg-white/10 text-white rounded-full border border-white/10 hover:bg-red-500 transition-all">
-             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M6 18L18 6M6 6l12 12"/></svg>
+          <img src={fullscreenImage} className="relative max-w-full max-h-full object-contain rounded-[3rem] shadow-[0_0_120px_rgba(0,0,0,1)] border border-white/5" />
+          <button onClick={() => setFullscreenImage(null)} className="absolute top-8 right-8 p-6 bg-white/5 hover:bg-[#9b1b30] text-white rounded-full border border-white/10 transition-all">
+             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       )}

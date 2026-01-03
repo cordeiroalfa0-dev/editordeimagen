@@ -21,36 +21,37 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, af
   return (
     <div 
       ref={containerRef}
-      className="relative w-full aspect-square overflow-hidden cursor-ew-resize select-none border border-zinc-800 shadow-inner"
+      className="relative w-full h-full overflow-hidden cursor-ew-resize select-none bg-black"
       onMouseMove={handleMove}
       onTouchMove={handleMove}
-      onMouseDown={(e) => { e.preventDefault(); }} // Prevent text selection on desktop
+      onMouseDown={(e) => { e.preventDefault(); }}
     >
-      {/* Imagem Depois */}
-      <img src={after} alt="Depois" className="absolute inset-0 w-full h-full object-cover" />
+      <img src={after} alt="Render" className="absolute inset-0 w-full h-full object-cover" />
       
-      {/* Imagem Antes (Recortada) */}
       <div 
-        className="absolute inset-0 w-full h-full overflow-hidden border-r-2 border-white/50 shadow-[5px_0_20px_rgba(0,0,0,0.5)] transition-all duration-75"
+        className="absolute inset-0 w-full h-full overflow-hidden border-r border-[#9b1b30]/50 transition-all duration-75"
         style={{ width: `${sliderPos}%` }}
       >
-        <img src={before} alt="Antes" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${10000 / sliderPos}%`, maxWidth: 'none' }} />
-        <div className="absolute top-4 left-4 md:top-8 md:left-8 bg-black/60 backdrop-blur-md px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-black text-white uppercase tracking-[0.2em] border border-white/10">Original</div>
+        <img 
+            src={before} 
+            alt="Source" 
+            className="absolute inset-0 w-full h-full object-cover" 
+            style={{ width: `${100 / (sliderPos/100)}%`, maxWidth: 'none' }} 
+        />
+        <div className="absolute top-10 left-10 bg-black/60 backdrop-blur-2xl px-6 py-3 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] border border-white/5">Original_Entrada</div>
       </div>
 
-      {/* Alça do Slider */}
       <div 
-        className="absolute inset-y-0 w-1 bg-white flex items-center justify-center transition-all duration-75"
+        className="absolute inset-y-0 w-[2px] bg-[#9b1b30] flex items-center justify-center transition-all duration-75 shadow-[0_0_25px_rgba(155,27,48,0.8)]"
         style={{ left: `${sliderPos}%` }}
       >
-        <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center justify-center -ml-[3.5px] md:-ml-[4.5px]">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M8 12h8m-8 0l4-4m-4 4l4 4" />
-          </svg>
+        <div className="w-12 h-12 bg-white rounded-2xl shadow-[0_0_50px_rgba(0,0,0,1)] flex items-center justify-center -ml-[1px]">
+          <div className="w-5 h-[2px] bg-black rotate-90 rounded-full"></div>
+          <div className="absolute w-14 h-14 border border-[#9b1b30]/30 rounded-full animate-ping opacity-20"></div>
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 md:top-8 md:right-8 bg-indigo-500/90 backdrop-blur-md px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-black text-white uppercase tracking-[0.2em] shadow-lg">Studio v2.5</div>
+      <div className="absolute top-10 right-10 bg-[#9b1b30] px-6 py-3 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] shadow-[0_0_35px_rgba(155,27,48,0.4)]">Render_Sintetizado</div>
     </div>
   );
 };

@@ -4,16 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VisionEdit Pro - Studio Master</title>
+    <meta name="theme-color" content="#0a0a0b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VisionOS">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=V&background=800020&color=fff&size=192">
+    <link rel="manifest" href="manifest.json">
+    <title>VisionOS - Studio Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.4);
-            --bg-deep: #020202;
-            --glass: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent: #9b1b30;
+            --accent-glow: rgba(155, 27, 48, 0.4);
+            --bg-deep: #0a0a0b;
+            --grafite-light: #1c1c1e;
+            --vinho-deep: #5a0d1a;
+            --glass: rgba(18, 18, 20, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.04);
         }
 
         body {
@@ -21,58 +29,79 @@
             background-color: var(--bg-deep);
             color: #ffffff;
             margin: 0;
-            overflow: hidden; /* Controlado pelo layout */
+            overflow: hidden;
             background-image: 
-                radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.15), transparent 80%),
-                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.05), transparent 50%);
+                radial-gradient(circle at 50% -20%, rgba(155, 27, 48, 0.1), transparent 70%),
+                radial-gradient(circle at 100% 100%, rgba(28, 28, 30, 0.5), transparent 40%);
             background-attachment: fixed;
             min-height: 100vh;
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        .fade-in-studio {
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(155, 27, 48, 0.2); border-radius: 20px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(155, 27, 48, 0.2) transparent;
+        }
+
         .glass-panel {
-            background: rgba(10, 10, 15, 0.6);
-            backdrop-filter: blur(32px) saturate(200%);
+            background: var(--glass);
+            backdrop-filter: blur(50px) saturate(190%);
             border: 1px solid var(--glass-border);
         }
 
-        .premium-glow {
-            box-shadow: 0 0 30px -10px var(--accent-glow);
+        .neo-button {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .text-gradient {
-            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .neo-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(155,27,48,0.15) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        .neo-button:hover::after {
+            opacity: 1;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.6);
+        .scanline::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(155, 27, 48, 0.01), rgba(0, 0, 0, 0.01), rgba(155, 27, 48, 0.01));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            opacity: 0.2;
         }
 
-        .btn-primary:active {
-            transform: translateY(1px);
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
-
-        .floating { animation: float 6s ease-in-out infinite; }
+        /* Classes Utilitárias Vinho */
+        .bg-vinho { background-color: var(--accent); }
+        .text-vinho { color: var(--accent); }
+        .border-vinho { border-color: var(--accent); }
+        .shadow-vinho-glow { shadow-color: var(--accent-glow); }
     </style>
 <script type="importmap">
 {
