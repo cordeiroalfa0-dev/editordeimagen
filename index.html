@@ -3,25 +3,29 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#0a0a0b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="VisionOS">
     <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=V&background=800020&color=fff&size=192">
     <link rel="manifest" href="manifest.json">
-    <title>VisionOS - Studio Master</title>
+    <title>VisionOS - Estúdio Profissional</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent: #9b1b30;
-            --accent-glow: rgba(155, 27, 48, 0.4);
+            --accent: #e11d48; /* Tom mais vibrante para contraste */
+            --wine-deep: #7f1d1d;
+            --accent-glow: rgba(225, 29, 72, 0.6);
             --bg-deep: #0a0a0b;
-            --grafite-light: #1c1c1e;
-            --vinho-deep: #5a0d1a;
-            --glass: rgba(18, 18, 20, 0.8);
-            --glass-border: rgba(255, 255, 255, 0.04);
+            --glass: rgba(18, 18, 20, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            outline: none !important;
         }
 
         body {
@@ -31,77 +35,68 @@
             margin: 0;
             overflow: hidden;
             background-image: 
-                radial-gradient(circle at 50% -20%, rgba(155, 27, 48, 0.1), transparent 70%),
-                radial-gradient(circle at 100% 100%, rgba(28, 28, 30, 0.5), transparent 40%);
+                radial-gradient(circle at 50% -10%, rgba(225, 29, 72, 0.1), transparent 60%),
+                url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            background-blend-mode: overlay;
             background-attachment: fixed;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .fade-in-studio {
-            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        /* EFEITO VINHO NEON */
+        .text-wine-glow {
+            color: #fb7185; /* Rosa claro para base do brilho */
+            background: linear-gradient(to bottom, #fb7185, #e11d48);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(225, 29, 72, 0.5), 0 0 30px rgba(225, 29, 72, 0.2);
+            filter: drop-shadow(0 0 2px rgba(225, 29, 72, 0.8));
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .label-wine {
+            color: #fb7185;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(225, 29, 72, 0.4);
         }
 
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(155, 27, 48, 0.2); border-radius: 20px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(155, 27, 48, 0.2) transparent;
-        }
 
         .glass-panel {
             background: var(--glass);
-            backdrop-filter: blur(50px) saturate(190%);
+            backdrop-filter: blur(50px) saturate(200%);
             border: 1px solid var(--glass-border);
+            box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.8);
         }
 
         .neo-button {
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
             overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .neo-button::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(155,27,48,0.15) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.4s;
-            pointer-events: none;
+        .neo-button:hover {
+            box-shadow: 0 0 35px var(--accent-glow);
+            transform: translateY(-3px);
         }
 
-        .neo-button:hover::after {
-            opacity: 1;
+        @keyframes pulse-wine-glow {
+            0%, 100% { opacity: 0.8; filter: brightness(1); }
+            50% { opacity: 1; filter: brightness(1.5); }
         }
 
-        .scanline::before {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(155, 27, 48, 0.01), rgba(0, 0, 0, 0.01), rgba(155, 27, 48, 0.01));
-            z-index: 2;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-            opacity: 0.2;
+        .animate-wine-pulse {
+            animation: pulse-wine-glow 2s ease-in-out infinite;
         }
 
-        /* Classes Utilitárias Vinho */
-        .bg-vinho { background-color: var(--accent); }
-        .text-vinho { color: var(--accent); }
-        .border-vinho { border-color: var(--accent); }
-        .shadow-vinho-glow { shadow-color: var(--accent-glow); }
+        textarea::placeholder {
+            color: #52525b;
+            font-weight: 600;
+        }
     </style>
 <script type="importmap">
 {
@@ -114,7 +109,7 @@
 }
 </script>
 </head>
-<body class="antialiased">
+<body class="antialiased selection:bg-[#e11d48] selection:text-white">
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>

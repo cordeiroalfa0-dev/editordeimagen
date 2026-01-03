@@ -34,7 +34,6 @@ const App: React.FC = () => {
   const [genMode, setGenMode] = useState<'Edit' | 'Create'>('Edit');
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +75,7 @@ const App: React.FC = () => {
       setResult(null);
       setGenMode('Edit');
       setViewMode(ViewMode.COMPARISON);
-      setStatusMsg({ text: "ASSET_SINCRONIZADO", type: 'success' });
+      setStatusMsg({ text: "FOTO CARREGADA", type: 'success' });
       setTimeout(() => setStatusMsg(null), 2000);
     };
     reader.readAsDataURL(file);
@@ -88,7 +87,7 @@ const App: React.FC = () => {
   const downloadAsset = (url: string, filename: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VISION-OS-V3-${filename}.png`;
+    link.download = `VISION-${filename}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -99,38 +98,37 @@ const App: React.FC = () => {
     setSelectedImage(p.originalAlignedUrl || null);
     setGenMode(p.originalAlignedUrl ? 'Edit' : 'Create');
     setViewMode(ViewMode.COMPARISON);
-  };
-
-  const useProjectAsBase = (p: ProcessingResult) => {
-    setSelectedImage(p.versions[0].imageUrl);
-    setResult(null);
-    setGenMode('Edit');
-    setViewMode(ViewMode.COMPARISON);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleRun = async () => {
     if (isProcessing) return;
+    
     if (genMode === 'Edit' && !selectedImage) {
-      setStatusMsg({ text: "IMAGEM_OBRIGATÓRIA", type: 'warning' });
+      setStatusMsg({ text: "POR FAVOR, CARREGUE UMA FOTO", type: 'warning' });
       return;
     }
+    
     if (command.trim().length < 3) {
-      setStatusMsg({ text: "PROMPT_VAZIO", type: 'warning' });
+      setStatusMsg({ text: "DESCREVA SUA IDEIA ANTES", type: 'warning' });
       return;
     }
 
+    // Regra obrigatória para modelos Pro: verificar API Key antes da chamada
     if (modelMode === 'Pro') {
       const aistudio = (window as any).aistudio;
       if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
+        // O processo continua após o trigger da abertura
       }
     }
     
     setIsProcessing(true);
-    setStatusMsg({ text: "SINTETIZANDO_BLOCOS...", type: 'warning' });
+    setStatusMsg({ text: genMode === 'Create' ? "SINTETIZANDO IMAGEM..." : "RECONSTRUINDO ASSET...", type: 'warning' });
     
     try {
       const imageToProcess = genMode === 'Edit' ? selectedImage : null;
+      // Chamada do serviço com nova instância de IA interna
       const data: any = await processImageRequest(imageToProcess as string, command, modelMode, aspectRatio, imageSize);
       
       if (data.error) {
@@ -144,11 +142,11 @@ const App: React.FC = () => {
       setResult(dataWithFolder);
       await refreshData();
       
-      setStatusMsg({ text: "SÍNTESE_CONCLUÍDA", type: 'success' });
+      setStatusMsg({ text: "RENDER FINALIZADO", type: 'success' });
       setTimeout(() => setStatusMsg(null), 3000);
       
     } catch (e: any) {
-      setStatusMsg({ text: "FALHA_CONEXÃO_DADOS", type: 'error' });
+      setStatusMsg({ text: "FALHA CRÍTICA NO SISTEMA", type: 'error' });
     } finally {
       setIsProcessing(false);
     }
@@ -163,7 +161,7 @@ const App: React.FC = () => {
       operatorEmail={operatorEmail}
       onSelectProject={viewProjectHistory}
       onDeleteProject={async id => { await deleteProject(id); refreshData(); setResult(null); }}
-      onClearHistory={async () => { if(confirm("LIMPAR_DADOS?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
+      onClearHistory={async () => { if(confirm("Deseja apagar todos os renders?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
       onGeneratePython={() => {}}
       onCreateFolder={async n => { await saveFolder({id: `DIR-${Date.now()}`, name: n, timestamp: Date.now()}); refreshData(); }}
       onSelectFolder={(id) => { setActiveFolderId(id); setViewMode(ViewMode.HISTORY); }}
@@ -171,166 +169,183 @@ const App: React.FC = () => {
       onMoveProject={updateProjectFolder}
       onInstallApp={deferredPrompt ? installPWA : undefined}
     >
-      <div className="max-w-[1800px] mx-auto px-4 md:px-12 py-6 md:py-10 space-y-8 md:space-y-12 pb-32 fade-in-studio">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8 py-8 md:py-12 space-y-12 pb-32">
         
-        {/* BARRA DE STATUS SUPERIOR */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-between items-stretch sm:items-center bg-zinc-900/40 backdrop-blur-3xl p-4 sm:p-6 rounded-[2rem] sm:rounded-[3rem] border border-white/5 shadow-2xl">
-           <div className="flex flex-1 gap-2 sm:gap-4">
+        {/* CABEÇALHO */}
+        <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-zinc-900/80 backdrop-blur-3xl p-6 md:p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
+           <div className="flex gap-4 w-full md:w-auto">
               <button 
                 onClick={() => setViewMode(ViewMode.COMPARISON)} 
-                className={`flex-1 sm:flex-none px-6 sm:px-12 py-4 sm:py-5 rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] transition-all neo-button ${viewMode === ViewMode.COMPARISON ? 'bg-white text-black shadow-xl' : 'bg-white/5 text-zinc-500 border border-white/5 hover:bg-white/10'}`}
+                className={`flex-1 md:flex-none px-12 py-5 rounded-2xl text-xs md:text-base font-black uppercase tracking-widest transition-all ${viewMode === ViewMode.COMPARISON ? 'bg-white text-black shadow-lg scale-105' : 'bg-white/5 text-zinc-500 hover:text-white'}`}
               >
-                ESTÚDIO_MESTRE
+                ESTÚDIO
               </button>
               <button 
                 onClick={() => setViewMode(ViewMode.HISTORY)} 
-                className={`flex-1 sm:flex-none px-6 sm:px-12 py-4 sm:py-5 rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] transition-all neo-button ${viewMode === ViewMode.HISTORY ? 'bg-white text-black shadow-xl' : 'bg-white/5 text-zinc-500 border border-white/5 hover:bg-white/10'}`}
+                className={`flex-1 md:flex-none px-12 py-5 rounded-2xl text-xs md:text-base font-black uppercase tracking-widest transition-all ${viewMode === ViewMode.HISTORY ? 'bg-white text-black shadow-lg scale-105' : 'bg-white/5 text-zinc-500 hover:text-white'}`}
               >
-                ARQUIVO_LOCAL
+                ARQUIVOS
               </button>
            </div>
-           
-           <div className="hidden sm:flex gap-6 items-center pr-4">
-              <div className="text-right">
-                 <p className="text-[8px] font-black text-[#9b1b30] uppercase tracking-widest">Motor_Principal</p>
-                 <p className="text-[11px] font-black text-white uppercase tracking-tighter">VisionOS_V3.0</p>
+           <div className="hidden lg:flex gap-10 px-8">
+              <div className="flex items-center gap-3">
+                 <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.8)]"></div>
+                 <span className="text-xs font-black uppercase tracking-[0.4em] text-zinc-400">ESTADO: ONLINE</span>
               </div>
-              <div className="h-10 w-px bg-white/10"></div>
-              <div className="text-right">
-                 <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Nós_Sincronizados</p>
-                 <p className="text-[11px] font-black text-white">{projects.length}</p>
-              </div>
+              <div className="w-px h-6 bg-white/10"></div>
+              <div className="text-xs font-black uppercase tracking-[0.4em] text-zinc-400">{projects.length} RENDERS ATIVOS</div>
            </div>
         </div>
 
         {statusMsg && (
-          <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm px-8 py-5 rounded-2xl border backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] animate-in slide-in-from-bottom-10 ${statusMsg.type === 'error' ? 'bg-red-950/20 text-red-200 border-red-500/50' : 'bg-[#9b1b30]/10 text-rose-100 border-[#9b1b30]/50'}`}>
-             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-center">{statusMsg.text}</p>
+          <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[300] w-[95%] max-w-md px-10 py-6 rounded-3xl glass-panel border-[#e11d48]/50 shadow-[0_0_60px_rgba(225,29,72,0.3)] animate-in slide-in-from-bottom-10`}>
+             <p className="text-base font-black uppercase tracking-widest text-center text-white drop-shadow-lg">
+               {statusMsg.text}
+             </p>
           </div>
         )}
 
         {viewMode === ViewMode.HISTORY ? (
-          <div className="space-y-10 animate-in fade-in duration-500">
-             <div className="border-b border-white/10 pb-8">
-                <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter">Repositório_de_Nós</h2>
-                <p className="text-[10px] sm:text-[11px] font-bold text-zinc-600 uppercase tracking-[0.4em] mt-2">Banco de dados em arquitetura grafite e vinho.</p>
+          <div className="space-y-12 animate-in fade-in duration-700">
+             <div className="border-l-8 border-[#e11d48] pl-8 py-3 bg-white/5 rounded-r-3xl">
+                <h2 className="text-4xl font-black uppercase tracking-tighter text-white text-wine-glow">REPOSITÓRIO_LOCAL</h2>
+                <p className="text-sm font-extrabold text-zinc-400 uppercase tracking-[0.5em] mt-2">Navegação em cache persistente.</p>
              </div>
              
-             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-8">
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
                {projects.map(p => (
-                 <div key={p.id} className="group relative aspect-square bg-zinc-900/40 rounded-[2.5rem] border border-white/5 overflow-hidden transition-all hover:border-[#9b1b30]/50 hover:shadow-[0_0_40px_rgba(155,27,48,0.15)]">
-                    <img src={p.versions[0].imageUrl} className="w-full h-full object-cover transition-transform duration-[2.5s] group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-black/85 backdrop-blur-lg opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-8 space-y-4">
-                       <button onClick={() => useProjectAsBase(p)} className="w-full py-4 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-xl">Recarregar</button>
-                       <button onClick={() => downloadAsset(p.versions[0].imageUrl, p.id)} className="w-full py-4 bg-[#9b1b30] text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Exportar</button>
-                       <button onClick={() => {if(confirm("EXCLUIR_NÓ?")) {deleteProject(p.id); refreshData();}}} className="text-[8px] font-black text-zinc-500 uppercase tracking-widest pt-2 hover:text-red-500">Excluir</button>
+                 <div key={p.id} className="group relative aspect-square bg-zinc-900/60 rounded-[3.5rem] border border-white/10 overflow-hidden transition-all hover:border-[#e11d48]/50">
+                    <img src={p.versions[0].imageUrl} className="w-full h-full object-cover transition-transform duration-[4s] group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/90 backdrop-blur-xl opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-12 space-y-5">
+                       <button onClick={() => viewProjectHistory(p)} className="w-full py-5 bg-white text-black text-sm font-black uppercase tracking-widest rounded-2xl hover:scale-105 transition-transform">ABRIR RENDER</button>
+                       <button onClick={() => downloadAsset(p.versions[0].imageUrl, p.id)} className="w-full py-5 bg-[#e11d48] text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#e11d48]/30">BAIXAR PNG</button>
                     </div>
                  </div>
                ))}
-               {projects.length === 0 && (
-                 <div className="col-span-full py-32 text-center border-2 border-dashed border-white/5 rounded-[4rem] opacity-20">
-                   <p className="text-[11px] font-black uppercase tracking-[1em]">Repositório_Vazio</p>
-                 </div>
-               )}
              </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
-            {/* BLOCO DE CONTROLE */}
-            <div className="lg:col-span-4 space-y-8">
-               <div className="glass-panel p-8 sm:p-12 rounded-[3.5rem] space-y-8 sm:space-y-12 shadow-[0_80px_160px_rgba(0,0,0,0.8)]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+            
+            {/* PAINEL LATERAL */}
+            <div className="lg:col-span-5 space-y-10">
+               <div className="glass-panel p-10 md:p-12 rounded-[4rem] space-y-12">
                   
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] px-2">Modo_do_Pipeline</label>
-                    <div className="flex gap-2 p-1.5 bg-black/40 rounded-[1.5rem] border border-white/5">
-                       <button onClick={() => setGenMode('Edit')} className={`flex-1 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${genMode === 'Edit' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Editar_Buffer</button>
-                       <button onClick={() => setGenMode('Create')} className={`flex-1 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${genMode === 'Create' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Sintetizar_Puro</button>
+                  <div className="space-y-6">
+                    <label className="label-wine block px-2">MODALIDADE_OPERACIONAL</label>
+                    <div className="flex gap-3 p-2 bg-black/60 rounded-3xl border border-white/10">
+                       <button 
+                         onClick={() => setGenMode('Edit')} 
+                         className={`flex-1 py-5 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${genMode === 'Edit' ? 'bg-zinc-800 text-white shadow-2xl border border-white/10' : 'text-zinc-600 hover:text-zinc-400'}`}
+                       >
+                         EDITAR_FOTO
+                       </button>
+                       <button 
+                         onClick={() => setGenMode('Create')} 
+                         className={`flex-1 py-5 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${genMode === 'Create' ? 'bg-[#e11d48] text-white shadow-[0_0_30px_rgba(225,29,72,0.4)]' : 'text-zinc-600 hover:text-zinc-400'}`}
+                       >
+                         CRIAR_DO_ZERO
+                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] px-2">Comando_Operacional</label>
+                  <div className="space-y-6">
+                    <label className="label-wine block px-2">DESCRIÇÃO_TÉCNICA</label>
                     <textarea 
                       value={command}
                       onChange={e => setCommand(e.target.value)}
-                      className="w-full bg-black/60 p-8 rounded-[2rem] text-sm outline-none border border-white/5 focus:border-[#9b1b30]/50 transition-all min-h-[160px] custom-scrollbar leading-relaxed placeholder:text-zinc-800"
-                      placeholder={genMode === 'Edit' ? "Defina os ajustes estruturais..." : "Descreva os atributos da síntese..."}
+                      className="w-full bg-black/70 p-8 rounded-[2.5rem] text-lg outline-none border border-white/10 focus:border-[#e11d48]/60 transition-all min-h-[220px] leading-relaxed text-white shadow-inner font-medium"
+                      placeholder={genMode === 'Create' ? "Ex: Um robô futurista explorando uma floresta bioluminescente, 8k..." : "Ex: Mude a cor do cabelo para azul neon e adicione óculos cyberpunk..."}
                     />
                   </div>
 
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-2 gap-4">
-                       <button onClick={() => setModelMode('Standard')} className={`py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${modelMode === 'Standard' ? 'bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.1)]' : 'border-white/5 text-zinc-600'}`}>Modo_Flash</button>
-                       <button onClick={() => setModelMode('Pro')} className={`py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${modelMode === 'Pro' ? 'bg-[#9b1b30] text-white border-[#9b1b30] shadow-[0_0_30px_rgba(155,27,48,0.4)]' : 'border-white/5 text-zinc-600'}`}>Pro_Ultra</button>
+                  <div className="space-y-10">
+                    <div className="grid grid-cols-2 gap-5">
+                       <button onClick={() => setModelMode('Standard')} className={`py-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${modelMode === 'Standard' ? 'bg-white text-black border-white' : 'border-white/10 text-zinc-500 hover:text-white'}`}>MOTOR_FLASH</button>
+                       <button onClick={() => setModelMode('Pro')} className={`py-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${modelMode === 'Pro' ? 'bg-[#e11d48] text-white border-[#e11d48] shadow-[0_0_40px_rgba(225,29,72,0.4)]' : 'border-white/10 text-zinc-500 hover:text-white'}`}>MOTOR_ULTRA_V3</button>
+                    </div>
+                    
+                    <div className="space-y-5">
+                      <label className="label-wine block px-2">PROPORÇÃO_RENDER</label>
+                      <div className="grid grid-cols-4 gap-3">
+                        {["1:1", "16:9", "9:16", "4:3"].map(r => (
+                          <button key={r} onClick={() => setAspectRatio(r as AspectRatio)} className={`py-4 rounded-2xl text-xs font-black border transition-all ${aspectRatio === r ? 'bg-white/15 text-white border-white/40' : 'border-white/5 text-zinc-600 hover:text-white'}`}>{r}</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   <button 
                     onClick={handleRun}
                     disabled={isProcessing}
-                    className={`w-full py-8 sm:py-9 rounded-[2.5rem] font-black text-[13px] uppercase tracking-[0.8em] transition-all neo-button ${isProcessing ? 'bg-zinc-950 text-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.01] shadow-[0_30px_60px_rgba(0,0,0,0.4)] active:scale-95'}`}
+                    className={`w-full py-10 rounded-[3.5rem] font-black text-lg uppercase tracking-[0.8em] transition-all neo-button ${isProcessing ? 'bg-zinc-950 text-zinc-800 cursor-not-allowed border-zinc-800' : 'bg-white text-black shadow-2xl active:scale-95'}`}
                   >
-                    {isProcessing ? 'SINTETIZANDO...' : 'INICIAR_SÍNTESE'}
+                    {isProcessing ? 'SINTETIZANDO...' : genMode === 'Create' ? 'GERAR AGORA' : 'EXECUTAR'}
                   </button>
                </div>
             </div>
 
-            {/* BUFFER_DE_VISUALIZAÇÃO */}
-            <div className="lg:col-span-8 space-y-12">
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-12">
-                  {/* ENTRADA */}
-                  <div className={`space-y-6 transition-all duration-1000 ${genMode === 'Create' ? 'opacity-10 grayscale scale-95 pointer-events-none' : ''}`}>
-                     <div className="flex justify-between items-center px-6">
-                        <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em]">Buffer_Entrada</p>
-                        <div className="flex gap-6">
-                           <button onClick={openCamera} className="text-[10px] font-black text-[#9b1b30] uppercase tracking-widest sm:hidden">Capturar</button>
-                           <button onClick={openFileSelector} className="text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-white transition-colors">Carregar_Asset</button>
-                        </div>
+            {/* VIEWER AREA */}
+            <div className="lg:col-span-7 space-y-16">
+               <div className="flex flex-col space-y-12">
+                  
+                  {/* INPUT SECTION */}
+                  <div className={`space-y-6 transition-all duration-700 ${genMode === 'Create' ? 'opacity-20 pointer-events-none grayscale scale-95' : ''}`}>
+                     <div className="flex justify-between items-center px-8">
+                        <span className="label-wine">BUFFER_ENTRADA</span>
+                        {genMode === 'Edit' && (
+                          <div className="flex gap-8">
+                             <button onClick={openCamera} className="text-sm font-black text-[#e11d48] uppercase md:hidden tracking-tighter">CÂMERA</button>
+                             <button onClick={openFileSelector} className="text-sm font-black text-zinc-400 hover:text-white uppercase tracking-widest">SUBSTITUIR</button>
+                          </div>
+                        )}
                      </div>
                      <div 
                         onClick={genMode === 'Edit' ? openFileSelector : undefined}
-                        className="aspect-square bg-zinc-950/40 rounded-[4.5rem] border border-white/5 relative overflow-hidden flex items-center justify-center cursor-pointer group shadow-inner"
+                        className={`aspect-square rounded-[4rem] border-2 border-dashed relative overflow-hidden flex items-center justify-center transition-all ${genMode === 'Edit' ? 'bg-black/60 border-white/10 cursor-pointer hover:border-[#e11d48]/40' : 'bg-zinc-900 border-zinc-800'}`}
                      >
-                        <div className="absolute inset-0 scanline opacity-10"></div>
-                        {selectedImage ? (
-                           <img src={selectedImage} className="w-full h-full object-cover transition-transform duration-[5s] group-hover:scale-105" />
+                        {genMode === 'Create' ? (
+                           <div className="text-center p-16 opacity-30">
+                              <p className="text-lg font-black uppercase tracking-[0.5em]">GERAÇÃO TEXTUAL ATIVA</p>
+                              <p className="text-xs font-bold mt-2">Nenhum arquivo de entrada necessário</p>
+                           </div>
+                        ) : selectedImage ? (
+                           <img src={selectedImage} className="w-full h-full object-cover transition-transform duration-[6s]" />
                         ) : (
-                           <div className="text-center p-12 opacity-20 group-hover:opacity-100 transition-opacity">
-                              <svg className="w-16 h-16 mx-auto mb-6 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                              <p className="text-[11px] font-black uppercase tracking-[0.8em]">Entrada_Necessária</p>
+                           <div className="text-center p-16 opacity-40">
+                              <svg className="w-20 h-20 mx-auto mb-8 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                              <p className="text-base font-black uppercase tracking-[0.8em]">CARREGAR FOTO</p>
                            </div>
                         )}
-                        <div className="absolute inset-0 bg-[#9b1b30]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                      </div>
                   </div>
 
-                  {/* SAÍDA */}
+                  {/* OUTPUT SECTION */}
                   <div className="space-y-6">
-                     <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em] px-6">Fluxo_de_Saída</p>
-                     <div className="aspect-square bg-[#030304] rounded-[4.5rem] border border-white/5 relative overflow-hidden flex items-center justify-center shadow-[0_60px_120px_rgba(0,0,0,0.9)]">
+                     <span className="label-wine px-8 block">OUTPUT_FINAL_RENDER</span>
+                     <div className="aspect-square bg-[#050507] rounded-[4rem] border-2 border-white/10 relative overflow-hidden flex items-center justify-center shadow-[0_80px_160px_rgba(0,0,0,1)]">
                         {isProcessing ? (
                            <div className="text-center">
-                              <div className="w-20 h-20 border-[3px] border-[#9b1b30] border-t-transparent rounded-full animate-spin mx-auto mb-10 shadow-[0_0_40px_rgba(155,27,48,0.2)]"></div>
-                              <p className="text-[10px] font-black uppercase text-white tracking-[0.8em] animate-pulse">Renderizando_Frames...</p>
+                              <div className="w-24 h-24 border-[6px] border-[#e11d48] border-t-transparent rounded-full animate-spin mx-auto mb-10 shadow-[0_0_50px_rgba(225,29,72,0.4)]"></div>
+                              <p className="text-xl font-black uppercase text-white tracking-[1em] animate-wine-pulse">GERANDO...</p>
                            </div>
                         ) : result ? (
                            <>
-                              <div className="absolute inset-0 scanline opacity-10 pointer-events-none"></div>
                               {genMode === 'Edit' && selectedImage ? (
                                 <BeforeAfterSlider before={selectedImage} after={result.versions[0].imageUrl} />
                               ) : (
-                                <img src={result.versions[0].imageUrl} className="w-full h-full object-cover animate-in zoom-in-95 duration-1000" />
+                                <img src={result.versions[0].imageUrl} className="w-full h-full object-cover animate-in zoom-in-95 duration-1000 shadow-2xl" />
                               )}
-                              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-50">
-                                 <button onClick={() => downloadAsset(result.versions[0].imageUrl, result.id)} className="px-10 py-5 bg-white text-black text-[11px] font-black uppercase tracking-widest rounded-2xl shadow-2xl neo-button">Baixar</button>
-                                 <button onClick={() => setFullscreenImage(result.versions[0].imageUrl)} className="p-5 bg-black/60 backdrop-blur-2xl rounded-2xl border border-white/10 text-white hover:bg-white hover:text-black transition-all">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-6 z-50">
+                                 <button onClick={() => downloadAsset(result.versions[0].imageUrl, result.id)} className="px-12 py-6 bg-white text-black text-sm font-black uppercase tracking-widest rounded-3xl shadow-2xl active:scale-95 transition-all">SALVAR PNG</button>
+                                 <button onClick={() => setFullscreenImage(result.versions[0].imageUrl)} className="p-6 bg-black/70 backdrop-blur-3xl rounded-3xl border-2 border-white/20 text-white hover:bg-white hover:text-black transition-all">
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                                  </button>
                               </div>
                            </>
                         ) : (
-                           <div className="text-center opacity-10 p-12">
-                              <p className="text-[11px] font-black uppercase tracking-[1em]">Buffer_Inativo</p>
+                           <div className="text-center opacity-10 p-16">
+                              <p className="text-xl font-black uppercase tracking-[1.5em]">ESTÁGIO_DE_ESPERA</p>
                            </div>
                         )}
                      </div>
@@ -340,17 +355,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INPUTS OCULTOS */}
         <input type="file" ref={fileInputRef} onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} className="hidden" accept="image/*" />
         <input type="file" ref={cameraInputRef} onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} className="hidden" accept="image/*" capture="environment" />
       </div>
 
       {fullscreenImage && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-16 animate-in fade-in duration-500">
-          <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl" onClick={() => setFullscreenImage(null)}></div>
-          <img src={fullscreenImage} className="relative max-w-full max-h-full object-contain rounded-[3rem] shadow-[0_0_120px_rgba(0,0,0,1)] border border-white/5" />
-          <button onClick={() => setFullscreenImage(null)} className="absolute top-8 right-8 p-6 bg-white/5 hover:bg-[#9b1b30] text-white rounded-full border border-white/10 transition-all">
-             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 md:p-20 animate-in fade-in duration-500 backdrop-blur-3xl">
+          <div className="absolute inset-0 bg-black/98" onClick={() => setFullscreenImage(null)}></div>
+          <img src={fullscreenImage} className="relative max-w-full max-h-full object-contain rounded-[4rem] shadow-2xl border-2 border-white/10" />
+          <button onClick={() => setFullscreenImage(null)} className="absolute top-12 right-12 p-8 bg-white/10 hover:bg-[#e11d48] text-white rounded-full border-2 border-white/20 active:scale-90 transition-all">
+             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       )}
