@@ -9,25 +9,26 @@ export type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
 export type ImageSize = "1K" | "2K" | "4K";
 export type ModelMode = 'Standard' | 'Pro';
 
+export interface PSDLayer {
+  id: string;
+  name: string;
+  type: 'subject' | 'background' | 'foreground' | 'fx' | 'lighting';
+  visibility: boolean;
+  opacity: number;
+}
+
 export interface GeneratedVersion {
   id: string;
   imageUrl: string;
+  videoUrl?: string;
   description: string;
+  refinedPrompt?: string;
   style: string;
   lighting: string;
   scenery: string;
   resolution: string;
   groundingUrls?: string[];
-}
-
-export interface ArchitectureInfo {
-  frontend: string;
-  backend: string;
-  aiIntegration: string;
-  libraries: string[];
-  dataStructureExample: any;
-  securityProtocol: string;
-  scalabilityPlan: string;
+  layers?: PSDLayer[];
 }
 
 export interface SystemLog {
@@ -39,28 +40,25 @@ export interface SystemLog {
 export interface ProcessingResult {
   id: string;
   folderId?: string;
+  operatorEmail?: string;
   analysis?: string;
   confirmation?: string;
   versions: GeneratedVersion[];
   originalAlignedUrl?: string;
-  architecture?: ArchitectureInfo;
   logs: SystemLog[];
   timestamp: number;
+  isLocked?: boolean;
   config?: {
     aspectRatio: AspectRatio;
     imageSize: ImageSize;
     mode: ModelMode;
   };
-  // Fix: Property 'error' does not exist on type 'ProcessingResult'
   error?: string;
 }
 
 export enum ViewMode {
   GALLERY = 'GALLERY',
   COMPARISON = 'COMPARISON',
-  ARCHITECT = 'ARCHITECT',
-  CONTACT_SHEET = 'CONTACT_SHEET',
-  TELEMETRY = 'TELEMETRY',
   HISTORY = 'HISTORY',
-  PICK_SOURCE = 'PICK_SOURCE'
+  PRESETS = 'PRESETS'
 }

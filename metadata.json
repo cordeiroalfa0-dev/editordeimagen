@@ -1,7 +1,9 @@
 {
-  "name": "VisionEdit Pro - Estúdio de Imagem IA Avançado",
-  "description": "Uma plataforma profissional de alta qualidade para edição e variação de imagens usando modelos avançados Gemini Vision e Geração de Imagem.",
+  "name": "VisionOS Studio Master Pro",
+  "description": "Estúdio profissional com IA generativa para imagens e vídeos (Veo), incluindo arquitetura de prompts avançada e exportação PSD.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone",
+    "geolocation"
   ]
 }
