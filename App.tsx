@@ -55,7 +55,7 @@ const App: React.FC = () => {
       reader.onload = () => {
         setSelectedImage(reader.result as string);
         setGenMode('Edit');
-        setStatusMsg({ text: "MATRIZ IDENTIFICADA - MODO EDIÇÃO ATIVADO", type: 'success' });
+        setStatusMsg({ text: "MATRIZ PRONTA PARA PROCESSAMENTO", type: 'success' });
         setTimeout(() => setStatusMsg(null), 2000);
       };
       reader.readAsDataURL(file);
@@ -64,32 +64,31 @@ const App: React.FC = () => {
 
   const handleSavePSD = async (imageUrl: string, id: string, layers?: PSDLayer[]) => {
     if (!layers) {
-      setStatusMsg({ text: "MODO STANDARD É SINGLE-LAYER. USE MASTER PRO PARA CAMADAS.", type: 'warning' });
+      setStatusMsg({ text: "MODO STANDARD NÃO SUPORTA CAMADAS SEPARADAS. USE PRO.", type: 'warning' });
       return;
     }
     setIsLayering(true);
     for(let i = 0; i < layers.length; i++) {
-        setStatusMsg({ text: `DECOMPONDO ELEMENTO: ${layers[i].name}`, type: 'info' });
+        setStatusMsg({ text: `ELEMENTO DETECTADO: ${layers[i].name}`, type: 'info' });
         await new Promise(r => setTimeout(r, 600));
     }
     const link = document.createElement('a');
     link.href = imageUrl;
-    link.download = `VISIONOS-MASTER-${id}-MULTILAYER.psd`;
+    link.download = `VISIONOS-MASTER-${id}-ELEMENT-LAYERS.psd`;
     link.click();
     setIsLayering(false);
-    setStatusMsg({ text: "ARQUIVO PSD COM ELEMENTOS SEPARADOS SALVO", type: 'success' });
+    setStatusMsg({ text: "PSD MULTI-CAMADAS EXPORTADO", type: 'success' });
     setTimeout(() => setStatusMsg(null), 3000);
   };
 
   const handleRun = async () => {
     if (isProcessing) return;
     if (!command.trim()) {
-      setStatusMsg({ text: "DIGITE AS INSTRUÇÕES DO RENDER", type: 'warning' });
+      setStatusMsg({ text: "INSIRA AS INSTRUÇÕES", type: 'warning' });
       return;
     }
-
     setIsProcessing(true);
-    setStatusMsg({ text: `INICIANDO RENDER ${modelMode.toUpperCase()}...`, type: 'info' });
+    setStatusMsg({ text: `SISTEMA: RENDER ${modelMode.toUpperCase()} INICIADO...`, type: 'info' });
     
     try {
       const data = await processImageRequest(selectedImage, command, modelMode, aspectRatio, imageSize, "", genMode);
@@ -104,12 +103,12 @@ const App: React.FC = () => {
         setResult(updated);
         await saveProject(updated);
         await refreshData();
-        setStatusMsg({ text: "PROCESSO NEURAL CONCLUÍDO", type: 'success' });
+        setStatusMsg({ text: "RENDER CONCLUÍDO COM SUCESSO", type: 'success' });
       } else {
         setStatusMsg({ text: data.error, type: 'error' });
       }
     } catch (e: any) {
-      setStatusMsg({ text: "FALHA NO SERVIDOR MASTER", type: 'error' });
+      setStatusMsg({ text: "ERRO CRÍTICO NO MOTOR", type: 'error' });
     } finally {
       setIsProcessing(false);
       setTimeout(() => setStatusMsg(null), 3000);
@@ -138,11 +137,10 @@ const App: React.FC = () => {
           
           <div className="xl:col-span-4 space-y-6">
             <div className="glass-panel p-8 rounded-[3rem] space-y-8 border-white/5 shadow-2xl bg-[#0d0d0f]/95 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#e11d48] to-transparent"></div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#e11d48] to-transparent opacity-50"></div>
               
-              {/* COMPONENTE DE UPLOAD (MATRIZ) */}
               <div className="space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Matriz de Referência</span>
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Matriz de Imagem (Upload)</span>
                 <div 
                   onClick={() => fileInputRef.current?.click()} 
                   className={`group relative p-6 border-2 border-dashed rounded-[2.5rem] transition-all cursor-pointer flex flex-col items-center justify-center gap-4 ${selectedImage ? 'border-[#e11d48] bg-[#e11d48]/5' : 'border-zinc-800 bg-black/40 hover:border-zinc-700'}`}
@@ -158,27 +156,21 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
-                {selectedImage && (
-                  <button onClick={() => { setSelectedImage(null); setGenMode('Create'); }} className="w-full py-2 text-[9px] font-black text-zinc-700 hover:text-red-500 uppercase tracking-widest">Remover Matriz (Modo Criação)</button>
-                )}
               </div>
 
-              {/* SELETOR DE QUALIDADE (STANDARD / PRO) */}
               <div className="space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Motor de Render</span>
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Qualidade do Render</span>
                 <div className="flex p-1.5 bg-black/60 rounded-2xl border border-white/5">
                   <button onClick={() => setModelMode('Standard')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-all ${modelMode === 'Standard' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Standard (Fast)</button>
                   <button onClick={() => setModelMode('Pro')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-all ${modelMode === 'Pro' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-600 hover:text-zinc-400'}`}>Master Pro (PSD)</button>
                 </div>
               </div>
 
-              {/* INPUT DE PROMPT (CRIAÇÃO OU EDIÇÃO) */}
               <div className="space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Instruções Master</span>
                 <textarea 
                   value={command} onChange={e => setCommand(e.target.value)}
                   className="w-full bg-black/60 p-7 rounded-[2.5rem] text-sm outline-none border border-white/10 focus:border-[#e11d48]/40 min-h-[160px] text-white placeholder-zinc-800 transition-all font-medium leading-relaxed"
-                  placeholder={selectedImage ? "O que deseja alterar na matriz?" : "Descreva a imagem que deseja criar do zero..."}
+                  placeholder="Instruções para o sistema Master..."
                 />
               </div>
 
@@ -187,7 +179,7 @@ const App: React.FC = () => {
                 disabled={isProcessing} 
                 className={`w-full py-8 rounded-[3rem] font-black text-xs uppercase tracking-[0.5em] shadow-2xl transition-all flex items-center justify-center gap-3 ${isProcessing ? 'bg-zinc-900 text-zinc-700' : 'bg-[#e11d48] text-white hover:scale-[1.02] active:scale-95 shadow-[0_20px_60px_rgba(225,29,72,0.3)]'}`}
               >
-                {isProcessing ? 'PROCESSANDO NEURÔNIOS...' : 'EXECUTAR RENDER MASTER'}
+                {isProcessing ? 'REQUISITANDO MOTOR...' : 'EXECUTAR RENDER MASTER'}
               </button>
             </div>
 
@@ -195,13 +187,13 @@ const App: React.FC = () => {
             {modelMode === 'Pro' && result?.versions[0]?.layers && (
               <div className="glass-panel p-8 rounded-[3rem] border-white/5 bg-black/40 space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between px-2">
-                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Objetos Segmentados</span>
-                  <span className="text-[9px] font-bold text-[#e11d48] uppercase">{result.versions[0].layers.length} Camadas</span>
+                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Pilha de Camadas PSD</span>
+                  <span className="text-[9px] font-bold text-[#e11d48] uppercase">Segmentado</span>
                 </div>
                 <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
                   {result.versions[0].layers.map(layer => (
-                    <div key={layer.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-[10px] font-black text-white/40">OBJ</div>
+                    <div key={layer.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-[10px] font-black text-white/40">L</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-black text-white uppercase truncate">{layer.name}</p>
                         <p className="text-[8px] font-bold text-zinc-600 uppercase">{layer.type}</p>
@@ -228,7 +220,7 @@ const App: React.FC = () => {
 
               {result ? (
                 <div className="w-full h-full relative">
-                  {selectedImage && genMode === 'Edit' ? (
+                  {genMode === 'Edit' && selectedImage ? (
                     <BeforeAfterSlider before={selectedImage} after={result.versions[0].imageUrl} />
                   ) : (
                     <img src={result.versions[0].imageUrl} className="w-full h-full object-contain" />
@@ -260,7 +252,7 @@ const App: React.FC = () => {
               ) : (
                 <div className="text-center p-20 opacity-20">
                   <div className={`w-36 h-36 border-[6px] ${isProcessing ? 'border-t-[#e11d48] animate-spin shadow-[0_0_80px_rgba(225,29,72,0.3)]' : 'border-dashed border-zinc-800'} rounded-full mx-auto mb-10`}></div>
-                  <p className="text-[14px] font-black uppercase tracking-[1.5em] text-white">Pronto para o Próximo Render</p>
+                  <p className="text-[14px] font-black uppercase tracking-[1.5em] text-white">Sistema Master Pronto</p>
                 </div>
               )}
             </div>
@@ -272,7 +264,7 @@ const App: React.FC = () => {
       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
       {statusMsg && (
-        <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 px-16 py-8 rounded-[2rem] border backdrop-blur-3xl z-[1000] animate-bounce text-[10px] font-black uppercase tracking-[0.5em] shadow-2xl ${statusMsg.type === 'error' ? 'bg-red-500/20 border-red-500 text-red-500' : (statusMsg.type === 'success' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'bg-blue-600 text-white border-white/20')}`}>
+        <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 px-16 py-8 rounded-[2rem] border backdrop-blur-3xl z-[1000] animate-bounce text-[10px] font-black uppercase tracking-[0.5em] shadow-2xl ${statusMsg.type === 'error' ? 'bg-red-500/20 border-red-500 text-red-500' : (statusMsg.type === 'success' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'bg-[#e11d48] text-white border-white/20')}`}>
           {statusMsg.text}
         </div>
       )}
