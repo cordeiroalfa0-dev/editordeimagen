@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Layout from './components/Layout';
 import { BeforeAfterSlider } from './components/BeforeAfterSlider';
 import { processImageRequest } from './services/gemini';
+import { exportToCanva } from './services/canva';
+import { generatePythonScript } from './services/pythonExporter';
 import { ProcessingResult, Folder, AspectRatio, ImageSize, ModelMode } from './types';
 import { 
   getAllProjects, 
@@ -21,9 +23,8 @@ declare global {
     openSelectKey: () => Promise<void>;
   }
   interface Window {
-    // DO NOT add any new files, classes, or namespaces.
-    // Fixed 'aistudio' modifier mismatch by adding readonly to match the environment's declaration.
-    readonly aistudio: AIStudio;
+    // Removed readonly modifier to resolve error: All declarations of 'aistudio' must have identical modifiers.
+    aistudio: AIStudio;
   }
 }
 
@@ -83,6 +84,29 @@ const App: React.FC = () => {
       setStatusMsg({ text: "NÚCLEO V1 ESTÁVEL RESTAURADO", type: 'success' });
       setTimeout(() => setStatusMsg(null), 3000);
     }
+  };
+
+  const handleExportPython = () => {
+    const script = generatePythonScript(process.env.API_KEY || '', { mode: modelMode }, command);
+    const blob = new Blob([script], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `visionos_pipeline_${Date.now()}.py`;
+    link.click();
+    setStatusMsg({ text: "SCRIPT PYTHON EXPORTADO", type: 'success' });
+    setTimeout(() => setStatusMsg(null), 2000);
+  };
+
+  const handleCanvaExport = async () => {
+    if (!result) return;
+    setStatusMsg({ text: "CONECTANDO AO CANVA PRO...", type: 'info' });
+    const res = await exportToCanva(result.versions[0].imageUrl, command, OPERATOR_EMAIL);
+    if (res.success) {
+      window.open(res.designUrl, '_blank');
+      setStatusMsg({ text: "SINCRONIZADO COM CANVA", type: 'success' });
+    }
+    setTimeout(() => setStatusMsg(null), 3000);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +200,7 @@ const App: React.FC = () => {
       onDeleteFolder={async id => { await deleteFolder(id); refreshData(); }}
       onMoveProject={updateProjectFolder}
       onRestoreV1={handleRestoreV1}
-      onGeneratePython={() => {}}
+      onGeneratePython={handleExportPython}
     >
       <div className="w-full flex flex-col p-6 lg:p-10 min-h-full max-w-[1600px] mx-auto">
         
@@ -196,7 +220,6 @@ const App: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
           
-          {/* PAINEL DE CONTROLE */}
           <div className="xl:col-span-4 space-y-8">
             <div className="glass-panel p-8 rounded-[3rem] space-y-8 shadow-2xl ring-1 ring-white/5">
               <div 
@@ -246,13 +269,32 @@ const App: React.FC = () => {
                   className={`w-full py-8 rounded-[2rem] font-black text-[12px] uppercase tracking-[0.5em] transition-all relative overflow-hidden group ${isProcessing ? 'bg-zinc-900 text-zinc-600' : 'bg-rose-600 text-white shadow-[0_20px_50px_rgba(225,29,72,0.3)] hover:scale-[1.02] active:scale-95 hover:bg-rose-500'}`}
                 >
                   <span className="relative z-10">{isProcessing ? 'GERANDO MATRIX...' : 'INICIAR RENDER MASTER'}</span>
-                  {!isProcessing && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>}
                 </button>
               </div>
             </div>
+
+            {/* PAINEL DE MÓDULOS PRO */}
+            {result && (
+              <div className="glass-panel p-8 rounded-[3rem] border border-white/5 space-y-6">
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Pipeline de Exportação</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <button onClick={handleCanvaExport} className="flex flex-col items-center gap-3 p-6 bg-white/5 hover:bg-white/10 rounded-3xl transition-all border border-white/5 hover:border-blue-500/40 group">
+                    <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                       <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12.9 6.85c.18-.3.45-.4.75-.4s.57.1.75.4l4.2 7c.18.3.18.7 0 1s-.45.4-.75.4H9.15c-.3 0-.57-.1-.75-.4s-.18-.7 0-1l4.2-7z"/></svg>
+                    </div>
+                    <span className="text-[9px] font-black uppercase text-zinc-400 group-hover:text-white tracking-widest">Canva Pro</span>
+                  </button>
+                  <button onClick={handleExportPython} className="flex flex-col items-center gap-3 p-6 bg-white/5 hover:bg-white/10 rounded-3xl transition-all border border-white/5 hover:border-emerald-500/40 group">
+                    <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                       <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    </div>
+                    <span className="text-[9px] font-black uppercase text-zinc-400 group-hover:text-white tracking-widest">Python SDK</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* CANVAS PRINCIPAL */}
           <div className="xl:col-span-8 space-y-8">
             <div className="aspect-video w-full bg-black/80 rounded-[4rem] border border-white/5 overflow-hidden shadow-3xl relative group ring-1 ring-white/10">
               {result ? (
@@ -265,7 +307,6 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {/* OVERLAY DE CONTROLE - FIX: Z-INDEX E POINTER EVENTS */}
                   <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-6 opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-6 group-hover:translate-y-0 z-[150] pointer-events-auto">
                     <button 
                       onClick={(e) => { e.stopPropagation(); setIsFullscreenView(true); }}
@@ -305,7 +346,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL MASTER FULLSCREEN - V1 STABLE */}
       {isFullscreenView && result && (
         <div className="fixed inset-0 z-[3000] bg-black/98 backdrop-blur-3xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
            <div className="h-28 px-12 flex items-center justify-between border-b border-white/5 shrink-0 bg-black/50">
@@ -338,7 +378,6 @@ const App: React.FC = () => {
 
       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
-      {/* STATUS NOTIFICATIONS */}
       {statusMsg && (
         <div className="fixed bottom-12 left-1/2 -translate-x-1/2 px-12 py-6 rounded-[2rem] bg-white text-black text-[11px] font-black uppercase tracking-[0.3em] z-[4000] shadow-[0_30px_60px_rgba(0,0,0,0.5)] flex items-center gap-5 animate-in slide-in-from-bottom-10 border border-zinc-200">
           <div className={`w-3 h-3 rounded-full ${statusMsg.type === 'error' ? 'bg-rose-600 shadow-[0_0_15px_#e11d48]' : 'bg-emerald-500 shadow-[0_0_15px_#10b981]'}`}></div>
