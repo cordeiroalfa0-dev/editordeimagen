@@ -18,6 +18,7 @@ interface LayoutProps {
   onSelectFolder: (id: string | undefined) => void;
   onDeleteFolder: (id: string) => void;
   onMoveProject: (projectId: string, folderId?: string) => void;
+  onRestoreV1: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -33,7 +34,8 @@ const Layout: React.FC<LayoutProps> = ({
   onClearHistory,
   onCreateFolder,
   onSelectFolder,
-  onDeleteFolder
+  onDeleteFolder,
+  onRestoreV1
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
@@ -59,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
           <div>
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">VisionOS</h2>
-            <p className="text-[10px] font-black text-[#e11d48] uppercase tracking-[0.4em] mt-1">V15 MASTER PRO</p>
+            <p className="text-[10px] font-black text-[#e11d48] uppercase tracking-[0.4em] mt-1">V1.0.0 MASTER PRO</p>
           </div>
         </div>
       </div>
@@ -107,7 +109,6 @@ const Layout: React.FC<LayoutProps> = ({
                   <div key={p.id} onClick={() => onSelectProject(p)} className={`aspect-square rounded-3xl overflow-hidden border transition-all cursor-pointer relative group shadow-2xl ${activeProjectId === p.id ? 'border-[#e11d48] ring-4 ring-[#e11d48]/40 scale-95' : 'border-white/5 opacity-50 hover:opacity-100 hover:scale-105'}`}>
                     <img src={p.versions[0]?.imageUrl} className="w-full h-full object-cover" loading="lazy" />
                     
-                    {/* BOTÃO EXCLUIR RÁPIDO - REDENHADO PARA MÁXIMA CLAREZA */}
                     <button 
                       onClick={async (e) => { 
                         e.stopPropagation(); 
@@ -134,6 +135,12 @@ const Layout: React.FC<LayoutProps> = ({
       </div>
 
       <div className="p-10 border-t border-white/5 space-y-4 bg-black/20">
+        <button 
+          onClick={onRestoreV1} 
+          className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-white bg-rose-600 hover:bg-rose-500 transition-all rounded-2xl shadow-[0_10px_20px_rgba(225,29,72,0.2)] border border-rose-400/20"
+        >
+          SISTEMA: RESTAURAR V1
+        </button>
         <button onClick={onClearHistory} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-zinc-700 hover:text-red-500 transition-all bg-white/5 rounded-2xl border border-white/5 hover:border-red-500/30">Resetar Todo o Banco</button>
       </div>
     </div>
@@ -157,11 +164,11 @@ const Layout: React.FC<LayoutProps> = ({
                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div className="hidden md:flex flex-col">
-               <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status de Conectividade</span>
+               <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status V1.0.0</span>
                <div className="flex items-center gap-3">
                  <div className={`w-3 h-3 rounded-full ${isSyncing ? 'bg-[#e11d48] animate-ping shadow-[0_0_15px_#e11d48]' : 'bg-emerald-500 shadow-[0_0_15px_#10b981]'}`}></div>
                  <span className="text-[12px] font-black text-white uppercase tracking-tighter">
-                   {isSyncing ? 'SINCRONIZANDO COM A NUVEM...' : `BANCO ATIVO: ${projects.length} RENDERS SELADOS`}
+                   {isSyncing ? 'SINCRONIZANDO...' : `STABLE: ${projects.length} RENDERS RENDIDOS`}
                  </span>
                </div>
             </div>
@@ -175,7 +182,7 @@ const Layout: React.FC<LayoutProps> = ({
                    <div className="w-3 h-3 bg-[#e11d48] rounded-full shadow-[0_0_20px_#e11d48]"></div>
                 </div>
              </div>
-             <div className="w-14 h-14 bg-white text-black rounded-2xl flex items-center justify-center font-black text-sm border border-[#e11d48]/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:scale-105 transition-all cursor-default">V15</div>
+             <div className="w-14 h-14 bg-white text-black rounded-2xl flex items-center justify-center font-black text-sm border border-[#e11d48]/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:scale-105 transition-all cursor-default">V1.0</div>
           </div>
         </header>
         

@@ -5,26 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#0a0a0b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="VisionOS">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=V&background=800020&color=fff&size=192">
-    <link rel="manifest" href="manifest.json">
-    <title>VisionOS - Ultra Fast</title>
+    <title>VisionOS Master Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --accent: #e11d48;
             --bg-deep: #0a0a0b;
-            --glass: rgba(15, 15, 18, 0.9);
-            --glass-border: rgba(255, 255, 255, 0.08);
-        }
-
-        * {
-            -webkit-tap-highlight-color: transparent;
-            outline: none !important;
-            box-sizing: border-box;
         }
 
         body {
@@ -32,61 +19,56 @@
             background-color: var(--bg-deep);
             color: #ffffff;
             margin: 0;
+            padding: 0;
+            min-height: 100vh;
             overflow: hidden;
-            background-image: radial-gradient(circle at 50% 0%, rgba(225, 29, 72, 0.08), transparent 50%);
-            -webkit-font-smoothing: antialiased;
+        }
+
+        #root {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .glass-panel {
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
+            background: rgba(15, 15, 20, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        @media (max-width: 768px) {
-            .glass-panel {
-                backdrop-filter: none;
-                background: rgba(20, 20, 22, 0.98);
-            }
-        }
-
-        .text-wine-glow {
-            background: linear-gradient(to bottom, #fb7185, #e11d48);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .label-wine {
-            color: #fb7185;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            font-weight: 800;
-            font-size: 0.7rem;
-        }
-
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-
-        .fast-fade { animation: fadeIn 0.2s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .neo-button { transition: transform 0.1s ease, box-shadow 0.1s ease; }
-        .neo-button:active { transform: scale(0.96); }
+        ::-webkit-scrollbar-thumb { background: #e11d48; border-radius: 10px; }
+        
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        .animate-status { animation: pulse-red 2s infinite ease-in-out; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@1.34.0",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7",
+    "ag-psd": "https://esm.sh/ag-psd@2.1.20",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
-<body class="antialiased">
-    <div id="root"></div>
+<body>
+    <div id="root">
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0a0a0b; color: #e11d48; font-family: 'Plus Jakarta Sans', sans-serif;">
+            <div style="width: 40px; height: 40px; border: 3px solid #e11d48; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+            <p style="font-weight: 800; letter-spacing: 0.5em; font-size: 10px; text-transform: uppercase;">Reinicializando VisionOS Core...</p>
+        </div>
+    </div>
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

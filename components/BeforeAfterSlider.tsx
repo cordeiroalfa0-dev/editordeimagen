@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 interface BeforeAfterSliderProps {
   before: string;
@@ -8,7 +8,29 @@ interface BeforeAfterSliderProps {
 
 export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, after }) => {
   const [sliderPos, setSliderPos] = useState(50);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setDimensions({
+        width: containerRef.current.offsetWidth,
+        height: containerRef.current.offsetHeight
+      });
+    }
+    
+    const handleResize = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!containerRef.current) return;
@@ -22,7 +44,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, af
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden cursor-ew-resize select-none bg-black group"
+      className="relative w-full h-full overflow-hidden cursor-ew-resize select-none bg-black"
       onMouseMove={handleMove}
       onTouchMove={handleMove}
     >
@@ -37,10 +59,14 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, af
         <img 
             src={before} 
             alt="Before" 
-            className="absolute top-0 left-0 w-screen h-screen object-contain pointer-events-none" 
-            style={{ width: containerRef.current?.offsetWidth || '100vw', height: containerRef.current?.offsetHeight || '100vh', maxWidth: 'none' }} 
+            className="absolute top-0 left-0 object-contain pointer-events-none" 
+            style={{ 
+              width: dimensions.width || '100%', 
+              height: dimensions.height || '100%', 
+              maxWidth: 'none' 
+            }} 
         />
-        <div className="absolute top-10 left-10 bg-black/60 backdrop-blur-md px-5 py-2 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] border border-white/10 opacity-40 group-hover:opacity-100 transition-opacity">MATRIZ_ORIGINAL</div>
+        <div className="absolute top-10 left-10 bg-black/60 backdrop-blur-md px-5 py-2 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] border border-white/10 opacity-80">MATRIZ_ORIGINAL</div>
       </div>
 
       {/* LINHA DO SLIDER */}
@@ -53,7 +79,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, af
         </div>
       </div>
 
-      <div className="absolute top-10 right-10 bg-[#e11d48] px-5 py-2 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] shadow-xl border border-white/20 opacity-40 group-hover:opacity-100 transition-opacity">RENDER_FINALIZADO</div>
+      <div className="absolute top-10 right-10 bg-[#e11d48] px-5 py-2 rounded-full text-[9px] font-black text-white uppercase tracking-[0.5em] shadow-xl border border-white/20 opacity-80">RENDER_FINALIZADO</div>
     </div>
   );
 };

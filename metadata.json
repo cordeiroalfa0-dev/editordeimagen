@@ -1,6 +1,7 @@
 {
   "name": "VisionOS Studio Master Pro",
-  "description": "Estúdio profissional com IA generativa para imagens e vídeos (Veo), incluindo arquitetura de prompts avançada e exportação PSD.",
+  "version": "1.0.0",
+  "description": "Estúdio profissional Master V1 Estável com IA generativa multimodal (Gemini 2.5/3.0). Interface otimizada, sistema de modal full-fidelity e renderização 4K.",
   "requestFramePermissions": [
     "camera",
     "microphone",

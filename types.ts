@@ -15,6 +15,7 @@ export interface PSDLayer {
   type: 'subject' | 'background' | 'foreground' | 'fx' | 'lighting';
   visibility: boolean;
   opacity: number;
+  imageUrl?: string;
 }
 
 export interface GeneratedVersion {

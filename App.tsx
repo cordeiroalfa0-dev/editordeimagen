@@ -3,8 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Layout from './components/Layout';
 import { BeforeAfterSlider } from './components/BeforeAfterSlider';
 import { processImageRequest } from './services/gemini';
-import { initializeCanvaSession } from './services/canva';
-import { ProcessingResult, Folder, AspectRatio, ImageSize, ModelMode, PSDLayer } from './types';
+import { ProcessingResult, Folder, AspectRatio, ImageSize, ModelMode } from './types';
 import { 
   getAllProjects, 
   saveProject, 
@@ -16,18 +15,31 @@ import {
   updateProjectFolder
 } from './services/storage';
 
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+  interface Window {
+    // DO NOT add any new files, classes, or namespaces.
+    // Fixed 'aistudio' modifier mismatch by adding readonly to match the environment's declaration.
+    readonly aistudio: AIStudio;
+  }
+}
+
 const App: React.FC = () => {
   const OPERATOR_EMAIL = "emerson.cordeiro00894687@sesisenaipr.org.br";
   
   const [modelMode, setModelMode] = useState<ModelMode>('Standard');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
-  const [imageSize, setImageSize] = useState<ImageSize>("2K");
-  const [genMode, setGenMode] = useState<'Edit' | 'Create' | 'Outpaint'>('Create');
+  const [imageSize, setImageSize] = useState<ImageSize>("1K");
+  const [stylePreset, setStylePreset] = useState('Cinematográfico High-End');
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [command, setCommand] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLayering, setIsLayering] = useState(false);
+  const [isFullscreenView, setIsFullscreenView] = useState(false);
+  
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [projects, setProjects] = useState<ProcessingResult[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -38,14 +50,39 @@ const App: React.FC = () => {
 
   useEffect(() => { 
     refreshData();
-    initializeCanvaSession(OPERATOR_EMAIL);
   }, []);
 
+  // Bloqueio de scroll do body quando o modal está ativo
+  useEffect(() => {
+    if (isFullscreenView) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [isFullscreenView]);
+
   const refreshData = async () => {
-    const p = await getAllProjects();
-    const f = await getAllFolders();
-    setProjects(p);
-    setFolders(f);
+    try {
+      const p = await getAllProjects();
+      const f = await getAllFolders();
+      setProjects(p || []);
+      setFolders(f || []);
+    } catch (e) {
+      console.warn("Sync failed, using cache.");
+    }
+  };
+
+  const handleRestoreV1 = () => {
+    if (confirm("RESTAURAR PARÂMETROS V1 ESTÁVEIS? (Isso resetará a interface atual)")) {
+      setSelectedImage(null);
+      setCommand('');
+      setResult(null);
+      setModelMode('Standard');
+      setAspectRatio('1:1');
+      setImageSize('1K');
+      setStatusMsg({ text: "NÚCLEO V1 ESTÁVEL RESTAURADO", type: 'success' });
+      setTimeout(() => setStatusMsg(null), 3000);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,64 +91,73 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onload = () => {
         setSelectedImage(reader.result as string);
-        setGenMode('Edit');
-        setStatusMsg({ text: "MATRIZ PRONTA PARA PROCESSAMENTO", type: 'success' });
+        setStatusMsg({ text: "MATRIZ CARREGADA COM SUCESSO", type: 'success' });
         setTimeout(() => setStatusMsg(null), 2000);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSavePSD = async (imageUrl: string, id: string, layers?: PSDLayer[]) => {
-    if (!layers) {
-      setStatusMsg({ text: "MODO STANDARD NÃO SUPORTA CAMADAS SEPARADAS. USE PRO.", type: 'warning' });
-      return;
+  const handleModeSwitch = async (mode: ModelMode) => {
+    if (mode === 'Pro') {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await window.aistudio.openSelectKey();
+      }
     }
-    setIsLayering(true);
-    for(let i = 0; i < layers.length; i++) {
-        setStatusMsg({ text: `ELEMENTO DETECTADO: ${layers[i].name}`, type: 'info' });
-        await new Promise(r => setTimeout(r, 600));
-    }
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `VISIONOS-MASTER-${id}-ELEMENT-LAYERS.psd`;
-    link.click();
-    setIsLayering(false);
-    setStatusMsg({ text: "PSD MULTI-CAMADAS EXPORTADO", type: 'success' });
-    setTimeout(() => setStatusMsg(null), 3000);
+    setModelMode(mode);
   };
 
-  const handleRun = async () => {
-    if (isProcessing) return;
+  const downloadImage = () => {
+    if (!result) return;
+    const link = document.createElement('a');
+    link.href = result.versions[0].imageUrl;
+    link.download = `VISIONOS-MASTER-${result.id}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setStatusMsg({ text: "EXPORTAÇÃO PNG CONCLUÍDA", type: 'success' });
+    setTimeout(() => setStatusMsg(null), 2000);
+  };
+
+  const handleRunImage = async () => {
     if (!command.trim()) {
-      setStatusMsg({ text: "INSIRA AS INSTRUÇÕES", type: 'warning' });
+      setStatusMsg({ text: "DIGITE UM COMANDO NEURAL", type: 'error' });
       return;
     }
+
     setIsProcessing(true);
-    setStatusMsg({ text: `SISTEMA: RENDER ${modelMode.toUpperCase()} INICIADO...`, type: 'info' });
+    setStatusMsg({ text: "PROCESSANDO RENDER DE ALTA FIDELIDADE...", type: 'info' });
     
     try {
-      const data = await processImageRequest(selectedImage, command, modelMode, aspectRatio, imageSize, "", genMode);
+      const data = await processImageRequest(
+        selectedImage, 
+        `${command}. Style: ${stylePreset}`, 
+        modelMode, 
+        aspectRatio, 
+        imageSize, 
+        "", 
+        "Edit"
+      );
+      
       if (!data.error) {
-        const updated: ProcessingResult = { 
-          ...data, 
-          folderId: activeFolderId, 
-          operatorEmail: OPERATOR_EMAIL,
-          timestamp: Date.now(),
-          config: { aspectRatio, imageSize, mode: modelMode }
-        };
-        setResult(updated);
-        await saveProject(updated);
+        setResult(data);
+        await saveProject(data);
         await refreshData();
-        setStatusMsg({ text: "RENDER CONCLUÍDO COM SUCESSO", type: 'success' });
+        setStatusMsg({ text: "RENDER COMPLETO - V1 STABLE", type: 'success' });
       } else {
-        setStatusMsg({ text: data.error, type: 'error' });
+        if (data.error.includes("ACESSO NEGADO") || data.error.includes("Requested entity was not found.")) {
+           setStatusMsg({ text: "CHAVE INVÁLIDA: REABRINDO SELETOR...", type: 'warning' });
+           await window.aistudio.openSelectKey();
+        } else {
+           setStatusMsg({ text: "FALHA NO RENDER: " + data.error, type: 'error' });
+        }
       }
     } catch (e: any) {
-      setStatusMsg({ text: "ERRO CRÍTICO NO MOTOR", type: 'error' });
+      setStatusMsg({ text: "ERRO CRÍTICO NO KERNEL DE IMAGEM", type: 'error' });
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setStatusMsg(null), 3000);
+      setTimeout(() => setStatusMsg(null), 5000);
     }
   };
 
@@ -121,158 +167,184 @@ const App: React.FC = () => {
       folders={folders} 
       activeProjectId={result?.id} 
       activeFolderId={activeFolderId} 
-      selectedBaseUrl={selectedImage}
       operatorEmail={OPERATOR_EMAIL}
-      onSelectProject={(p) => { setResult(p); setSelectedImage(p.originalAlignedUrl || null); }}
-      onDeleteProject={async (id) => { await deleteProject(id); refreshData(); }}
-      onClearHistory={async () => { if(confirm("Limpar todo o banco Master?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
-      onGeneratePython={() => {}}
-      onCreateFolder={async (n) => { await saveFolder({id: `F-${Date.now()}`, name: n, timestamp: Date.now()}); refreshData(); }}
+      onSelectProject={p => setResult(p)}
+      onDeleteProject={async id => { await deleteProject(id); refreshData(); }}
+      onClearHistory={async () => { if(confirm("Deseja deletar permanentemente todo o histórico Master?")) { await clearAllProjects(); refreshData(); setResult(null); } }}
+      onCreateFolder={async n => { await saveFolder({id: `F-${Date.now()}`, name: n, timestamp: Date.now()}); refreshData(); }}
       onSelectFolder={setActiveFolderId}
-      onDeleteFolder={async (id) => { await deleteFolder(id); refreshData(); }}
+      onDeleteFolder={async id => { await deleteFolder(id); refreshData(); }}
       onMoveProject={updateProjectFolder}
+      onRestoreV1={handleRestoreV1}
+      onGeneratePython={() => {}}
     >
-      <div className="max-w-[1600px] mx-auto px-6 py-10 flex flex-col min-h-full">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-          
-          <div className="xl:col-span-4 space-y-6">
-            <div className="glass-panel p-8 rounded-[3rem] space-y-8 border-white/5 shadow-2xl bg-[#0d0d0f]/95 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#e11d48] to-transparent opacity-50"></div>
-              
-              <div className="space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Matriz de Imagem (Upload)</span>
-                <div 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className={`group relative p-6 border-2 border-dashed rounded-[2.5rem] transition-all cursor-pointer flex flex-col items-center justify-center gap-4 ${selectedImage ? 'border-[#e11d48] bg-[#e11d48]/5' : 'border-zinc-800 bg-black/40 hover:border-zinc-700'}`}
-                >
-                  {selectedImage ? (
-                    <img src={selectedImage} className="w-full h-40 object-cover rounded-2xl shadow-2xl transition-transform group-hover:scale-[1.02]" />
-                  ) : (
-                    <div className="py-8 flex flex-col items-center">
-                       <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center text-zinc-600 mb-4 group-hover:text-white transition-all">
-                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                       </div>
-                       <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Enviar Matriz</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Qualidade do Render</span>
-                <div className="flex p-1.5 bg-black/60 rounded-2xl border border-white/5">
-                  <button onClick={() => setModelMode('Standard')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-all ${modelMode === 'Standard' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-zinc-400'}`}>Standard (Fast)</button>
-                  <button onClick={() => setModelMode('Pro')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-all ${modelMode === 'Pro' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-600 hover:text-zinc-400'}`}>Master Pro (PSD)</button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <textarea 
-                  value={command} onChange={e => setCommand(e.target.value)}
-                  className="w-full bg-black/60 p-7 rounded-[2.5rem] text-sm outline-none border border-white/10 focus:border-[#e11d48]/40 min-h-[160px] text-white placeholder-zinc-800 transition-all font-medium leading-relaxed"
-                  placeholder="Instruções para o sistema Master..."
-                />
-              </div>
-
-              <button 
-                onClick={handleRun} 
-                disabled={isProcessing} 
-                className={`w-full py-8 rounded-[3rem] font-black text-xs uppercase tracking-[0.5em] shadow-2xl transition-all flex items-center justify-center gap-3 ${isProcessing ? 'bg-zinc-900 text-zinc-700' : 'bg-[#e11d48] text-white hover:scale-[1.02] active:scale-95 shadow-[0_20px_60px_rgba(225,29,72,0.3)]'}`}
-              >
-                {isProcessing ? 'REQUISITANDO MOTOR...' : 'EXECUTAR RENDER MASTER'}
-              </button>
+      <div className="w-full flex flex-col p-6 lg:p-10 min-h-full max-w-[1600px] mx-auto">
+        
+        <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6 border-b border-white/5 pb-10">
+          <div>
+            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-3">STUDIO MASTER V1</h1>
+            <div className="flex items-center gap-4">
+               <span className="px-3 py-1 bg-rose-600/10 text-rose-500 text-[9px] font-black uppercase tracking-[0.3em] rounded-md border border-rose-500/20">CORE STABLE</span>
+               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">SISTEMA OTIMIZADO PARA ALTA PERFORMANCE</p>
             </div>
+          </div>
+          <div className="flex p-1.5 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-3xl shadow-2xl">
+            <button onClick={() => handleModeSwitch('Standard')} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${modelMode === 'Standard' ? 'bg-white text-black shadow-2xl' : 'text-zinc-500 hover:text-white'}`}>PADRÃO</button>
+            <button onClick={() => handleModeSwitch('Pro')} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${modelMode === 'Pro' ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-500 hover:text-white'}`}>PRO / 4K</button>
+          </div>
+        </header>
 
-            {/* PAINEL DE CAMADAS (APENAS PRO) */}
-            {modelMode === 'Pro' && result?.versions[0]?.layers && (
-              <div className="glass-panel p-8 rounded-[3rem] border-white/5 bg-black/40 space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Pilha de Camadas PSD</span>
-                  <span className="text-[9px] font-bold text-[#e11d48] uppercase">Segmentado</span>
-                </div>
-                <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                  {result.versions[0].layers.map(layer => (
-                    <div key={layer.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-[10px] font-black text-white/40">L</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black text-white uppercase truncate">{layer.name}</p>
-                        <p className="text-[8px] font-bold text-zinc-600 uppercase">{layer.type}</p>
-                      </div>
-                    </div>
-                  ))}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
+          
+          {/* PAINEL DE CONTROLE */}
+          <div className="xl:col-span-4 space-y-8">
+            <div className="glass-panel p-8 rounded-[3rem] space-y-8 shadow-2xl ring-1 ring-white/5">
+              <div 
+                onClick={() => fileInputRef.current?.click()} 
+                className={`relative p-10 border-2 border-dashed rounded-[2.5rem] cursor-pointer flex flex-col items-center justify-center min-h-[220px] transition-all group ${selectedImage ? 'border-rose-500 bg-rose-500/5' : 'border-zinc-800 bg-black/40 hover:border-rose-500/30'}`}
+              >
+                {selectedImage && <img src={selectedImage} className="absolute inset-0 w-full h-full object-cover rounded-[2.3rem] opacity-30 grayscale hover:grayscale-0 transition-all duration-700" />}
+                <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+                  <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center group-hover:scale-110 group-hover:bg-rose-500/20 transition-all duration-500 shadow-xl border border-white/5">
+                    <svg className="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" stroke="currentColor"/></svg>
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white">{selectedImage ? 'REMPLAÇAR MATRIZ' : 'CARREGAR MATRIZ'}</span>
                 </div>
               </div>
-            )}
+
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase px-2 tracking-[0.2em]">RESOLUÇÃO</label>
+                    <select value={imageSize} onChange={e => setImageSize(e.target.value as ImageSize)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-[11px] font-bold text-white uppercase outline-none focus:border-rose-500 transition-colors cursor-pointer shadow-inner">
+                      <option value="1K">HD (1K)</option>
+                      <option value="2K">ULTRA (2K)</option>
+                      <option value="4K">MASTER (4K)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase px-2 tracking-[0.2em]">ASPECT RATIO</label>
+                    <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value as AspectRatio)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-[11px] font-bold text-white uppercase outline-none focus:border-rose-500 transition-colors cursor-pointer shadow-inner">
+                      <option value="1:1">1:1 QUADRADO</option>
+                      <option value="16:9">16:9 CINEMA</option>
+                      <option value="9:16">9:16 MOBILE</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-zinc-500 uppercase px-2 tracking-[0.2em]">COMANDO NEURAL V1</label>
+                   <textarea 
+                     value={command} onChange={e => setCommand(e.target.value)}
+                     className="w-full bg-black/60 p-6 rounded-3xl text-[13px] outline-none border border-white/10 focus:border-rose-500 min-h-[160px] text-white resize-none placeholder:text-zinc-800 shadow-inner leading-relaxed transition-all"
+                     placeholder="Ex: Transforme em uma cena futurista de Cyberpunk com iluminação neon azul e rosa, ultra-detalhado..."
+                   />
+                </div>
+
+                <button 
+                  onClick={handleRunImage} disabled={isProcessing} 
+                  className={`w-full py-8 rounded-[2rem] font-black text-[12px] uppercase tracking-[0.5em] transition-all relative overflow-hidden group ${isProcessing ? 'bg-zinc-900 text-zinc-600' : 'bg-rose-600 text-white shadow-[0_20px_50px_rgba(225,29,72,0.3)] hover:scale-[1.02] active:scale-95 hover:bg-rose-500'}`}
+                >
+                  <span className="relative z-10">{isProcessing ? 'GERANDO MATRIX...' : 'INICIAR RENDER MASTER'}</span>
+                  {!isProcessing && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>}
+                </button>
+              </div>
+            </div>
           </div>
 
+          {/* CANVAS PRINCIPAL */}
           <div className="xl:col-span-8 space-y-8">
-            <div className="aspect-video w-full bg-zinc-950 rounded-[4rem] border border-white/5 overflow-hidden shadow-2xl relative flex items-center justify-center group">
-              
-              {isLayering && (
-                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-3xl flex items-center justify-center">
-                   <div className="absolute inset-0 border-t-2 border-[#00c6ff] animate-[layer-scan_2s_infinite]"></div>
-                   <div className="text-center">
-                      <p className="text-[11px] font-black text-white uppercase tracking-[1em] mb-4">Exportando Elementos PSD</p>
-                      <p className="text-[9px] font-bold text-zinc-500 uppercase">{statusMsg?.text}</p>
-                   </div>
-                </div>
-              )}
-
+            <div className="aspect-video w-full bg-black/80 rounded-[4rem] border border-white/5 overflow-hidden shadow-3xl relative group ring-1 ring-white/10">
               {result ? (
                 <div className="w-full h-full relative">
-                  {genMode === 'Edit' && selectedImage ? (
+                  {selectedImage ? (
                     <BeforeAfterSlider before={selectedImage} after={result.versions[0].imageUrl} />
                   ) : (
-                    <img src={result.versions[0].imageUrl} className="w-full h-full object-contain" />
+                    <div className="w-full h-full p-12 flex items-center justify-center bg-[radial-gradient(circle_at_center,rgba(20,20,20,1),rgba(0,0,0,1))]">
+                      <img src={result.versions[0].imageUrl} className="max-w-full max-h-full object-contain rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/5" alt="Master Render" />
+                    </div>
                   )}
-                  
-                  <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-5 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-6 group-hover:translate-y-0">
+
+                  {/* OVERLAY DE CONTROLE - FIX: Z-INDEX E POINTER EVENTS */}
+                  <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-6 opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-6 group-hover:translate-y-0 z-[150] pointer-events-auto">
                     <button 
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = result.versions[0].imageUrl;
-                        link.download = `VISIONOS-${result.id}.png`;
-                        link.click();
-                      }} 
-                      className="px-12 py-6 bg-white text-black rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-zinc-200 shadow-2xl transition-all"
+                      onClick={(e) => { e.stopPropagation(); setIsFullscreenView(true); }}
+                      className="px-10 py-5 bg-white/10 backdrop-blur-3xl text-white rounded-full font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-white/20 hover:scale-110 active:scale-90 transition-all flex items-center gap-4 border border-white/20 pointer-events-auto"
                     >
-                      Exportar PNG
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                      INSPECIONAR MASTER
                     </button>
-                    {modelMode === 'Pro' && (
-                      <button 
-                        onClick={() => handleSavePSD(result.versions[0].imageUrl, result.id, result.versions[0].layers)} 
-                        className="px-12 py-6 bg-blue-600 text-white border border-blue-400/30 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 shadow-2xl flex items-center gap-4 transition-all"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2" strokeWidth="2"/></svg>
-                        Exportar PSD (Camadas)
-                      </button>
-                    )}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); downloadImage(); }}
+                      className="px-12 py-5 bg-rose-600 text-white rounded-full font-black text-[11px] uppercase tracking-[0.2em] shadow-[0_25px_60px_rgba(225,29,72,0.5)] hover:scale-110 active:scale-90 transition-all flex items-center gap-4 border border-white/30 pointer-events-auto"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      BAIXAR PNG V1
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="text-center p-20 opacity-20">
-                  <div className={`w-36 h-36 border-[6px] ${isProcessing ? 'border-t-[#e11d48] animate-spin shadow-[0_0_80px_rgba(225,29,72,0.3)]' : 'border-dashed border-zinc-800'} rounded-full mx-auto mb-10`}></div>
-                  <p className="text-[14px] font-black uppercase tracking-[1.5em] text-white">Sistema Master Pronto</p>
+                <div className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                    <p className="text-[14px] font-black uppercase tracking-[1.5em] text-zinc-800 animate-pulse relative z-10">CANVAS MASTER AGUARDANDO</p>
+                </div>
+              )}
+
+              {isProcessing && (
+                <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center z-[250]">
+                  <div className="relative w-24 h-24 mb-8">
+                     <div className="absolute inset-0 border-4 border-rose-600/20 rounded-full"></div>
+                     <div className="absolute inset-0 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <p className="text-[12px] font-black uppercase tracking-[0.6em] text-white animate-pulse">RECONSTRUINDO NÚCLEO... V1</p>
+                  <p className="text-[9px] font-bold text-zinc-600 uppercase mt-4 tracking-widest">Ajustando parâmetros de iluminação e textura</p>
                 </div>
               )}
             </div>
           </div>
-
         </div>
       </div>
 
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-
-      {statusMsg && (
-        <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 px-16 py-8 rounded-[2rem] border backdrop-blur-3xl z-[1000] animate-bounce text-[10px] font-black uppercase tracking-[0.5em] shadow-2xl ${statusMsg.type === 'error' ? 'bg-red-500/20 border-red-500 text-red-500' : (statusMsg.type === 'success' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'bg-[#e11d48] text-white border-white/20')}`}>
-          {statusMsg.text}
+      {/* MODAL MASTER FULLSCREEN - V1 STABLE */}
+      {isFullscreenView && result && (
+        <div className="fixed inset-0 z-[3000] bg-black/98 backdrop-blur-3xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
+           <div className="h-28 px-12 flex items-center justify-between border-b border-white/5 shrink-0 bg-black/50">
+              <div className="flex flex-col">
+                 <div className="flex items-center gap-3 mb-1">
+                    <span className="w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_15px_#10b981]"></span>
+                    <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">VISUALIZADOR MASTER V1 STABLE</span>
+                 </div>
+                 <span className="text-[14px] font-black text-white uppercase tracking-tighter">{result.id} • {result.versions[0].resolution} QUALITY</span>
+              </div>
+              <div className="flex items-center gap-6">
+                 <button onClick={downloadImage} className="text-[10px] font-black text-zinc-400 hover:text-white uppercase tracking-widest transition-colors">EXPORTAR ATUAL</button>
+                 <button 
+                  onClick={() => setIsFullscreenView(false)}
+                  className="px-10 py-5 bg-white hover:bg-zinc-200 text-black rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-[0_20px_40px_rgba(255,255,255,0.1)] active:scale-90"
+                 >
+                   FECHAR INSPEÇÃO
+                 </button>
+              </div>
+           </div>
+           <div className="flex-1 overflow-auto p-6 md:p-12 flex items-center justify-center relative bg-[radial-gradient(circle_at_center,rgba(40,40,40,0.2),transparent)]">
+              <img 
+                src={result.versions[0].imageUrl} 
+                className="max-w-full max-h-full object-contain shadow-[0_0_150px_rgba(0,0,0,0.9)] rounded-xl border border-white/5"
+                alt="VisionOS Master High Fidelity"
+              />
+           </div>
         </div>
       )}
 
-      <style>{`
-        @keyframes layer-scan { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
-      `}</style>
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+
+      {/* STATUS NOTIFICATIONS */}
+      {statusMsg && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 px-12 py-6 rounded-[2rem] bg-white text-black text-[11px] font-black uppercase tracking-[0.3em] z-[4000] shadow-[0_30px_60px_rgba(0,0,0,0.5)] flex items-center gap-5 animate-in slide-in-from-bottom-10 border border-zinc-200">
+          <div className={`w-3 h-3 rounded-full ${statusMsg.type === 'error' ? 'bg-rose-600 shadow-[0_0_15px_#e11d48]' : 'bg-emerald-500 shadow-[0_0_15px_#10b981]'}`}></div>
+          <span className="max-w-[500px] truncate">{statusMsg.text}</span>
+        </div>
+      )}
     </Layout>
   );
 };
